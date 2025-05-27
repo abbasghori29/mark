@@ -39,6 +39,24 @@ active_connections = {}
 # Format: {room_id: {admin_id: sid}}
 active_admin_rooms = {}
 
+# Connection management for high concurrency
+connection_stats = {
+    'total_connections': 0,
+    'active_connections': 0,
+    'peak_connections': 0,
+    'connection_rate': 0,
+    'last_reset': time_module.time()
+}
+
+# Rate limiting for connections
+connection_rate_limit = {}  # ip_address -> {'count': int, 'window_start': timestamp}
+RATE_LIMIT_WINDOW = 60  # 1 minute window
+RATE_LIMIT_MAX_CONNECTIONS = 10  # Max connections per IP per minute
+
+# Connection pool management
+MAX_CONCURRENT_CONNECTIONS = 1000  # Maximum total concurrent connections
+CONNECTION_CLEANUP_INTERVAL = 300  # 5 minutes
+
 # AUTO-CLEANUP: Configuration for automatic chat removal
 INACTIVITY_TIMEOUT_MINUTES = 10  # Remove chat after 10 minutes of inactivity
 CLEANUP_CHECK_INTERVAL_SECONDS = 60  # Check every minute
@@ -145,6 +163,56 @@ def start_auto_cleanup_thread():
     else:
         print("ℹ️  Auto-cleanup thread already running")
 
+def check_rate_limit(ip_address):
+    """Check if IP address is within rate limits for connections"""
+    current_time = time_module.time()
+
+    # Clean up old entries
+    for ip in list(connection_rate_limit.keys()):
+        if current_time - connection_rate_limit[ip]['window_start'] > RATE_LIMIT_WINDOW:
+            del connection_rate_limit[ip]
+
+    # Check current IP
+    if ip_address not in connection_rate_limit:
+        connection_rate_limit[ip_address] = {
+            'count': 1,
+            'window_start': current_time
+        }
+        return True
+
+    # Check if within rate limit
+    if connection_rate_limit[ip_address]['count'] < RATE_LIMIT_MAX_CONNECTIONS:
+        connection_rate_limit[ip_address]['count'] += 1
+        return True
+
+    return False
+
+def update_connection_stats(connected=True):
+    """Update global connection statistics"""
+    global connection_stats
+
+    current_time = time_module.time()
+
+    if connected:
+        connection_stats['total_connections'] += 1
+        connection_stats['active_connections'] += 1
+
+        # Update peak connections
+        if connection_stats['active_connections'] > connection_stats['peak_connections']:
+            connection_stats['peak_connections'] = connection_stats['active_connections']
+    else:
+        connection_stats['active_connections'] = max(0, connection_stats['active_connections'] - 1)
+
+    # Calculate connection rate (connections per minute)
+    time_diff = current_time - connection_stats['last_reset']
+    if time_diff >= 60:  # Reset every minute
+        connection_stats['connection_rate'] = connection_stats['total_connections'] / (time_diff / 60)
+        connection_stats['last_reset'] = current_time
+
+def check_connection_limits():
+    """Check if we're within connection limits"""
+    return connection_stats['active_connections'] < MAX_CONCURRENT_CONNECTIONS
+
 # Define OAuth scopes
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -225,7 +293,29 @@ def add_hsts_header(response):
 
 @socketio.on('connect')
 def handle_connect():
-    print(f'Client connected: {request.sid}')
+    client_ip = request.environ.get('REMOTE_ADDR', 'unknown')
+    print(f'Client connected: {request.sid} from IP: {client_ip}')
+
+    # Check connection limits
+    if not check_connection_limits():
+        print(f'Connection limit exceeded. Rejecting connection from {client_ip}')
+        socketio.emit('connection_rejected', {
+            'reason': 'server_full',
+            'message': 'Server is currently at capacity. Please try again later.'
+        }, room=request.sid)
+        return False
+
+    # Check rate limiting
+    if not check_rate_limit(client_ip):
+        print(f'Rate limit exceeded for IP: {client_ip}')
+        socketio.emit('connection_rejected', {
+            'reason': 'rate_limit',
+            'message': 'Too many connection attempts. Please wait before trying again.'
+        }, room=request.sid)
+        return False
+
+    # Update connection statistics
+    update_connection_stats(connected=True)
 
     # AUTO-CLEANUP: Start the auto-cleanup thread when first client connects
     try:
@@ -236,9 +326,20 @@ def handle_connect():
         import traceback
         traceback.print_exc()
 
+    # Send connection confirmation with server info
+    socketio.emit('connection_confirmed', {
+        'server_time': time_module.time(),
+        'connection_id': request.sid,
+        'max_connections': MAX_CONCURRENT_CONNECTIONS,
+        'current_connections': connection_stats['active_connections']
+    }, room=request.sid)
+
 @socketio.on('disconnect')
 def handle_disconnect():
     print(f'Client disconnected: {request.sid}')
+
+    # Update connection statistics
+    update_connection_stats(connected=False)
 
     # Find if this was a visitor connection
     for visitor_id, data in list(active_connections.items()):
@@ -2098,6 +2199,33 @@ def visitor_disconnect_beacon():
 
     # Return a 200 OK response
     return '', 200
+
+@views.route('/api/connection_stats')
+def api_connection_stats():
+    """API endpoint to get connection statistics"""
+    try:
+        # Calculate additional stats
+        total_rooms = Room.query.filter_by(is_active=True).count()
+        total_visitors = len(active_connections)
+
+        stats = {
+            'server_stats': connection_stats.copy(),
+            'active_visitors': total_visitors,
+            'active_rooms': total_rooms,
+            'admin_rooms': len(active_admin_rooms),
+            'rate_limit_entries': len(connection_rate_limit),
+            'timestamp': time_module.time()
+        }
+
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 @views.route('/api/business_hours', methods=['GET', 'POST'])
 def api_business_hours():

@@ -14,6 +14,8 @@ class SocketManager {
             maxReconnectAttempts: 10,
             reconnectInterval: 3000,
             heartbeatInterval: 25000,
+            connectionTimeout: 10000,
+            maxConcurrentConnections: 5,  // Limit concurrent connections per client
             ...options
         };
 
@@ -26,12 +28,19 @@ class SocketManager {
         this.roomId = null;
         this.visitorId = null;
         this.adminId = null;
+        this.sessionId = null;  // Add session tracking
         this.lastMessageTimestamp = 0;
         this.pendingMessages = [];
         this.eventHandlers = {};
         this.connectionListeners = [];
         this.disconnectionListeners = [];
         this.reconnectionListeners = [];
+
+        // Connection management
+        this.connectionId = this.generateConnectionId();
+        this.connectionStartTime = null;
+        this.messageQueue = [];
+        this.isReconnecting = false;
 
         // Bind methods to maintain 'this' context
         this.connect = this.connect.bind(this);
@@ -52,6 +61,41 @@ class SocketManager {
     }
 
     /**
+     * Generate a unique connection ID
+     */
+    generateConnectionId() {
+        return 'conn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    /**
+     * Set session information for this connection
+     */
+    setSession(roomId, visitorId, adminId = null, sessionId = null) {
+        this.roomId = roomId;
+        this.visitorId = visitorId;
+        this.adminId = adminId;
+        this.sessionId = sessionId || this.generateConnectionId();
+        this.log(`Session set: Room=${roomId}, Visitor=${visitorId}, Admin=${adminId}, Session=${this.sessionId}`);
+    }
+
+    /**
+     * Get connection statistics
+     */
+    getConnectionStats() {
+        return {
+            connectionId: this.connectionId,
+            isConnected: this.isConnected,
+            reconnectAttempts: this.reconnectAttempts,
+            connectionStartTime: this.connectionStartTime,
+            pendingMessages: this.pendingMessages.length,
+            roomId: this.roomId,
+            visitorId: this.visitorId,
+            adminId: this.adminId,
+            sessionId: this.sessionId
+        };
+    }
+
+    /**
      * Connect to the socket.io server
      */
     connect() {
@@ -61,13 +105,24 @@ class SocketManager {
         }
 
         this.log('Connecting to socket.io server');
+        this.connectionStartTime = Date.now();
+        this.isReconnecting = false;
 
-        // Create new socket connection with reconnection disabled
-        // We'll handle reconnection ourselves for more control
+        // Create new socket connection with optimized settings for multiple connections
         this.socket = io({
-            reconnection: false,
-            timeout: 10000,
-            forceNew: true
+            reconnection: false,  // We handle reconnection ourselves
+            timeout: this.options.connectionTimeout,
+            forceNew: true,
+            transports: ['websocket', 'polling'],  // Prefer websockets
+            upgrade: true,
+            rememberUpgrade: true,
+            query: {
+                connectionId: this.connectionId,
+                sessionId: this.sessionId,
+                roomId: this.roomId,
+                visitorId: this.visitorId,
+                adminId: this.adminId
+            }
         });
 
         // Set up core event handlers

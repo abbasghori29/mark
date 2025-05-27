@@ -179,8 +179,16 @@ def create_app():
 
     db.init_app(app)
 
-    # Initialize socketio with the app
-    socketio.init_app(app, ping_timeout=60, ping_interval=25, cors_allowed_origins="*")
+    # Initialize socketio with the app - optimized for high concurrency
+    socketio.init_app(app,
+                     ping_timeout=60,
+                     ping_interval=25,
+                     cors_allowed_origins="*",
+                     max_http_buffer_size=1e6,  # 1MB buffer for large messages
+                     transports=['websocket', 'polling'],  # Prefer websockets
+                     async_mode='threading',  # Use threading for better concurrency
+                     logger=False,  # Disable verbose logging for performance
+                     engineio_logger=False)
 
     with app.app_context():
         # First, import models after db is initialized

@@ -736,18 +736,36 @@
 
     <!-- JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+    <!-- Chat Connection Manager -->
+    <script src="{{ url_for('static', filename='js/socket-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat-connection-manager.js') }}"></script>
+
     <script>
-        // Connect to Socket.IO with reconnection settings
-        var socket = io({
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 20000
-        });
+        // Initialize connection manager for this chat
         var roomId = "{{ room.id }}";
         var visitorId = "{{ visitor_id }}";
         var currentChatMode = "{{ room.chat_mode }}";
+
+        // Use the global chat connection manager to create/get connection for this room
+        var socketManager = window.chatConnectionManager.createConnection(
+            roomId,
+            visitorId,
+            null, // adminId (null for visitor)
+            {
+                debug: false,
+                autoReconnect: true,
+                maxReconnectAttempts: 10,
+                reconnectInterval: 2000,
+                heartbeatInterval: 20000
+            }
+        );
+
+        // Connect to the socket
+        socketManager.connect();
+
+        // Get the socket instance for compatibility with existing code
+        var socket = socketManager.socket;
 
         // Add page visibility and beforeunload event listeners
         document.addEventListener('visibilitychange', handleVisibilityChange);
