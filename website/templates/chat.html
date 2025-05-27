@@ -1,0 +1,810 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Support Chat{% endblock %}
+
+{% block content %}
+<style>
+    .message-container {
+        display: flex;
+        margin-bottom: 15px;
+        align-items: flex-start;
+    }
+
+    .profile-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        margin-right: 10px;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-initials {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: #0F4173;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .visitor-avatar {
+        background-color: #e6eef5;
+        color: #0F4173;
+        border: 1px solid #d1e0ed;
+        margin-right: 0;
+        margin-left: 10px;
+    }
+
+    .ai-avatar {
+        background-color: #e1f5fe;
+        color: #00bcd4;
+        border: 1px solid #b3e5fc;
+    }
+
+    .justify-end {
+        justify-content: flex-end;
+    }
+
+    .support-chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 90vh;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin: 20px auto;
+        max-width: 800px;
+    }
+
+    /* Typing indicator styles */
+    .typing-indicator {
+        display: none;
+        margin-bottom: 10px;
+        align-items: center;
+        margin-top: 16px; /* Add spacing above typing indicators */
+        position: relative; /* For positioning */
+    }
+
+    .typing-indicator.admin-typing,
+    .typing-indicator.ai-typing {
+        justify-content: flex-start;
+    }
+
+    .typing-indicator.visitor-typing {
+        justify-content: flex-end;
+    }
+
+    .typing-bubble {
+        padding: 10px 15px;
+        border-radius: 18px;
+        position: relative;
+        max-width: 75%;
+        margin: 0 8px;
+        background-color: #ffffff; /* White background for all typing bubbles */
+        border: 1px solid #e9ecef; /* Light border */
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+    }
+
+    .typing-bubble.admin-typing {
+        border-top-right-radius: 4px;
+    }
+
+    .typing-bubble.ai-typing {
+        border-top-right-radius: 4px;
+    }
+
+    .typing-bubble.visitor-typing {
+        border-top-left-radius: 4px;
+    }
+
+    .typing-bubble .dots {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .typing-bubble .dot {
+        height: 6px;
+        width: 6px;
+        border-radius: 50%;
+        background-color: #adb5bd; /* Medium gray dots */
+        margin: 0 2px;
+        animation: typingAnimation 1.4s infinite;
+        display: inline-block;
+    }
+
+    .typing-bubble .dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing-bubble .dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes typingAnimation {
+        0%, 60%, 100% {
+            transform: translateY(0);
+        }
+        30% {
+            transform: translateY(-4px);
+        }
+    }
+
+    .visitor-name-form {
+        display: flex;
+        align-items: center;
+    }
+
+    .system-message {
+        display: flex;
+        justify-content: center;
+        margin: 10px 0;
+        padding: 0 15px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .system-message-content {
+        background-color: #f8f9fa;
+        color: #6c757d;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+        max-width: 80%;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-word;
+    }
+
+    .system-message-time {
+        margin-left: 8px;
+        opacity: 0.7;
+        font-size: 10px;
+    }
+
+    /* Prevent horizontal scrolling in message container */
+    #message-container {
+        overflow-x: hidden;
+    }
+
+    /* Make sure all message content wraps properly */
+    .message-container .max-w-\[75\%\] {
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-word;
+    }
+
+    /* Updated message styles for the new color scheme */
+    .bg-primary-600 {
+        background-color: #0F4173 !important;
+    }
+
+    .bg-primary-700 {
+        background-color: #0a3055 !important;
+    }
+
+    .bg-primary-100 {
+        background-color: #e6eef5 !important;
+    }
+
+    .text-primary-900 {
+        color: #333333 !important;
+    }
+
+    .text-primary-600 {
+        color: #0F4173 !important;
+    }
+
+    .text-primary-800 {
+        color: #0a3055 !important;
+    }
+
+    .focus\:ring-primary-500:focus {
+        --tw-ring-color: #0F4173 !important;
+    }
+
+    .focus\:border-primary-500:focus {
+        border-color: #0F4173 !important;
+    }
+
+    .focus\:ring-offset-2:focus {
+        --tw-ring-offset-width: 2px;
+    }
+
+    .focus\:ring-2:focus {
+        --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+        --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+        box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+    }
+
+    /* Google Meet link styling */
+    .bg-white.rounded-xl a {
+        background-color: #0F4173 !important;
+    }
+
+    .bg-white.rounded-xl a:hover {
+        background-color: #0a3055 !important;
+    }
+
+    /* System message styling */
+    .border-primary-500 {
+        border-color: #0F4173 !important;
+    }
+
+    .text-primary-700 {
+        color: #0F4173 !important;
+    }
+
+    .bg-blue-50 {
+        background-color: #e6eef5 !important;
+    }
+
+    /* Chat mode toggle styling */
+    .toggle-input:checked + .toggle-label {
+        background-color: #0F4173 !important;
+    }
+
+    .toggle-label {
+        background-color: #f8fafc !important; /* Even lighter gray with blue tint */
+    }
+
+    /* Enhanced message input field styling */
+    .message-input-field {
+        border: 2px solid #e6eef5 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .message-input-field:focus {
+        border-color: #0F4173 !important;
+        box-shadow: 0 0 0 3px rgba(15, 65, 115, 0.2) !important;
+    }
+
+    /* Send button styling */
+    .send-button {
+        background-color: #0F4173 !important;
+        transition: all 0.3s ease !important;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .send-button:hover {
+        background-color: #0a3055 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(15, 65, 115, 0.3) !important;
+    }
+
+    .send-button:active {
+        transform: translateY(0) !important;
+    }
+
+    .send-button i {
+        transition: all 0.3s ease !important;
+    }
+
+    .send-button:hover i {
+        transform: translateX(2px) !important;
+    }
+
+    /* Enhanced "Add your details" styling */
+    .add-details-link {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 6px 12px !important;
+        background-color: #f0f7ff !important;
+        border: 1px solid #d1e0ed !important;
+        border-radius: 20px !important;
+        color: #0F4173 !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .add-details-link:hover {
+        background-color: #e6eef5 !important;
+        text-decoration: none !important;
+    }
+
+    .add-details-icon {
+        margin-right: 6px !important;
+    }
+</style>
+
+<div class="flex flex-col h-full bg-white overflow-hidden">
+    <!-- Chat Header -->
+    <div class="bg-primary-600 text-white p-4 flex justify-between items-center">
+        <div class="flex items-center">
+            <h2 class="text-xl font-semibold">Customer Support</h2>
+            <div class="ml-3 flex items-center">
+                <span class="relative flex h-3 w-3 mr-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span class="text-sm">{{ 'AI Assistant' if room.chat_mode == 'ai' else 'Live Support' }}</span>
+            </div>
+        </div>
+
+        <!-- Chat Mode Toggle -->
+        <div class="flex items-center">
+            <span class="text-sm mr-2">{{ 'AI' if room.chat_mode == 'ai' else 'Human' }}</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input id="chat-mode-toggle" type="checkbox" class="sr-only peer" {{ 'checked' if room.chat_mode == 'human' else '' }}>
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+            </label>
+            <span class="text-sm ml-2">{{ 'Human' if room.chat_mode == 'ai' else 'AI' }}</span>
+        </div>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="flex-grow overflow-y-auto p-4 bg-gray-50" id="message-container" room-id="{{ room.id }}" style="padding-bottom: 80px;">
+
+
+        {% if not has_online_admins and room.chat_mode == 'human' %}
+        <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 rounded shadow-soft">
+            <p class="text-amber-700">No support agent is currently available. Please leave a message and we will respond once we are active.</p>
+            {% if not within_business_hours %}
+            <p class="text-amber-700 mt-2">{{ away_message }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if room.chat_mode == 'ai' %}
+        <div class="bg-blue-50 border-l-4 border-primary-500 p-4 mb-4 rounded shadow-soft">
+            <p class="text-primary-700">You are currently chatting with our AI assistant. If you need to speak with a human agent, you can toggle the chat mode above.</p>
+        </div>
+        {% endif %}
+
+        {% if messages|length > 0 %}
+        <div class="space-y-4">
+            {% for message in messages %}
+            {% if message.is_system_message %}
+            <!-- System message -->
+            <div class="system-message">
+                <div class="system-message-content">
+                    {{ message.content }}
+                    <span class="system-message-time">{{ format_time(message.timestamp) }}</span>
+                </div>
+            </div>
+            {% else %}
+            <!-- Regular message -->
+            <div class="message-container {% if message.is_from_visitor %}justify-end{% endif %}">
+                {% if not message.is_from_visitor %}
+                    {% if message.is_ai_generated %}
+                        <div class="avatar-initials ai-avatar">
+                            <i class="material-icons">smart_toy</i>
+                        </div>
+                    {% else %}
+                        {% if message.admin_profile_image %}
+                            <div class="profile-avatar">
+                                <img src="{{ message.admin_profile_image }}" alt="{{ message.sender_name }}">
+                            </div>
+                        {% else %}
+                            <div class="avatar-initials">
+                                {{ message.sender_name|default('A')|first|upper }}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+
+                <div class="max-w-[75%] rounded-lg px-4 py-3 shadow-soft {% if message.is_from_visitor %}bg-primary-100 text-primary-900{% else %}{% if message.is_ai_generated %}bg-secondary-100 text-secondary-900{% else %}bg-primary-600 text-white{% endif %}{% endif %}">
+                    <div class="flex flex-col">
+                        <div class="flex items-center mb-1">
+                            <span class="text-xs font-medium {% if not message.is_from_visitor and not message.is_ai_generated %}text-white/80{% endif %}">
+                                {% if message.is_from_visitor %}
+                                    You
+                                {% elif message.is_ai_generated %}
+                                    AI Assistant
+                                {% else %}
+                                    {{ message.sender_name or 'Support Agent' }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <p class="text-sm">{{ message.content }}</p>
+                        <span class="text-xs mt-1 self-end opacity-70">{{ format_time(message.timestamp) }}</span>
+                    </div>
+                </div>
+
+                {% if message.is_from_visitor %}
+                    <div class="avatar-initials visitor-avatar">
+                        You
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white p-6 rounded-lg shadow-soft text-center">
+            <p class="text-gray-700 mb-2">{{ welcome_message }}</p>
+            {% if room.chat_mode == 'ai' %}
+            <p class="text-primary-600">{{ ai_welcome_message }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Typing indicators -->
+        <div id="admin-typing-indicator" class="typing-indicator admin-typing">
+            <div class="avatar-initials">
+                A
+            </div>
+            <div class="typing-bubble admin-typing">
+                <div class="dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="ai-typing-indicator" class="typing-indicator ai-typing">
+            <div class="avatar-initials ai-avatar">
+                <i class="material-icons">smart_toy</i>
+            </div>
+            <div class="typing-bubble ai-typing">
+                <div class="dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="visitor-typing-indicator" class="typing-indicator visitor-typing">
+            <div class="typing-bubble visitor-typing">
+                <div class="dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+            <div class="avatar-initials visitor-avatar">
+                You
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Input -->
+    <div class="border-t border-gray-200 p-4 bg-white">
+        <div class="flex items-center space-x-2">
+            <textarea id="message-input" class="flex-grow border border-gray-300 rounded-lg py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none" placeholder="Type your message here..." rows="2"></textarea>
+            <button id="send-message-btn" class="bg-primary-600 hover:bg-primary-700 text-white rounded-lg p-3 transition-colors">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+        <div class="flex justify-center mt-3">
+            <a href="#" id="add-details-link" class="text-primary-600 text-sm hover:text-primary-800 {% if visitor and (visitor.name or visitor.email) %}hidden{% endif %}">
+                <i class="fa-solid fa-user-pen mr-1"></i>
+                Add your details to help us serve you better
+            </a>
+        </div>
+    </div>
+
+    <!-- User Details Modal -->
+    <div id="user-details-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="fixed inset-0 bg-black opacity-50"></div>
+        <div class="bg-white rounded-lg p-6 w-96 relative z-10">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Your Details</h3>
+                <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-5">
+                <div class="mb-4">
+                    <label for="visitor-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input type="text" id="visitor-name" value="{{ visitor.name or '' }}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Your name">
+                </div>
+                <div class="mb-4">
+                    <label for="visitor-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="visitor-email" value="{{ visitor.email or '' }}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Your email address">
+                    <p id="email-error" class="text-red-500 text-xs mt-1 hidden">Please enter a valid email address.</p>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-details" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 focus:outline-none">
+                        Cancel
+                    </button>
+                <button id="save-user-details" class="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 focus:outline-none">
+                    Save
+                    </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    // Get room ID and visitor ID from the server
+    const roomId = "{{ room.id }}";
+    const visitorId = "{{ visitor_id }}";
+    const browserUUID = localStorage.getItem('browser_uuid');
+
+    // Store visitor_id and room_id in localStorage for persistence
+    localStorage.setItem('visitor_id', visitorId);
+    localStorage.setItem('room_id', roomId);
+
+    // Get timezone and time format settings
+    let timezone = "{{ timezone }}"; // Site default timezone
+    const timeFormat = "{{ time_format }}";
+    let currentTimeFormat = timeFormat; // Store current time format for real-time updates
+    let userTimezone = null; // User's detected timezone
+    let timezoneDetected = false; // Flag to track if timezone detection is complete
+
+    // Detect user's timezone automatically - run immediately
+    function detectUserTimezone() {
+        try {
+            // First, try to get timezone from browser
+            userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            console.log('Detected user timezone:', userTimezone);
+
+            // Test current time in detected timezone
+            const testDate = new Date();
+            const testTimeInUserTZ = new Intl.DateTimeFormat('en-US', {
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: true,
+                timeZone: userTimezone
+            }).format(testDate);
+            console.log('Current time in detected timezone:', testTimeInUserTZ);
+            console.log('Current time in browser local:', testDate.toLocaleTimeString());
+
+            // Update timezone to use user's local timezone
+            timezone = userTimezone;
+            timezoneDetected = true;
+
+            // Show timezone indicator to user
+            showTimezoneIndicator(userTimezone);
+
+            // Update all timestamps with the new timezone
+            updateAllTimestamps();
+
+            // Optionally, try to get more precise location-based timezone
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // Get timezone based on coordinates
+                        getTimezoneFromCoordinates(position.coords.latitude, position.coords.longitude);
+                    },
+                    function(error) {
+                        console.log('Geolocation error:', error.message);
+                        // Continue with browser-detected timezone
+                    },
+                    {
+                        timeout: 5000,
+                        enableHighAccuracy: false
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('Error detecting timezone:', error);
+            // Fallback to site timezone
+            timezone = "{{ timezone }}";
+        }
+    }
+
+    // Get timezone from coordinates using a timezone API
+    function getTimezoneFromCoordinates(lat, lng) {
+        // Use a simple timezone detection based on coordinates
+        // This is a basic implementation - you could use a more sophisticated API
+        try {
+            // For now, we'll stick with the browser-detected timezone
+            // as it's usually accurate and doesn't require external API calls
+            console.log('User location:', lat, lng);
+            console.log('Using browser-detected timezone:', userTimezone);
+        } catch (error) {
+            console.error('Error getting timezone from coordinates:', error);
+        }
+    }
+
+    // Show timezone indicator to user
+    function showTimezoneIndicator(detectedTimezone) {
+        try {
+            // Create a subtle notification that times are shown in user's timezone
+            const timezoneInfo = document.createElement('div');
+            timezoneInfo.id = 'timezone-indicator';
+            timezoneInfo.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: rgba(15, 65, 115, 0.9);
+                color: white;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                z-index: 1000;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                pointer-events: none;
+                max-width: 200px;
+                text-align: center;
+            `;
+
+            // Format timezone name for display
+            const timezoneName = detectedTimezone.replace(/_/g, ' ').split('/').pop();
+            timezoneInfo.innerHTML = `<i class="fas fa-clock" style="margin-right: 4px;"></i>Times shown in your timezone<br><small>${timezoneName}</small>`;
+
+            document.body.appendChild(timezoneInfo);
+
+            // Show the indicator
+            setTimeout(() => {
+                timezoneInfo.style.opacity = '1';
+            }, 100);
+
+            // Hide after 4 seconds
+            setTimeout(() => {
+                timezoneInfo.style.opacity = '0';
+                setTimeout(() => {
+                    if (timezoneInfo.parentNode) {
+                        timezoneInfo.parentNode.removeChild(timezoneInfo);
+                    }
+                }, 300);
+            }, 4000);
+        } catch (error) {
+            console.error('Error showing timezone indicator:', error);
+        }
+    }
+
+    // Setup Socket.IO connection
+    const socket = io();
+
+    var currentChatMode = "{{ room.chat_mode }}";
+
+    // Add page visibility and beforeunload event listeners
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') {
+            socket.emit('visitor_inactive', {
+                room_id: roomId,
+                visitor_id: visitorId
+            });
+        } else {
+            socket.emit('visitor_active', {
+                room_id: roomId,
+                visitor_id: visitorId
+            });
+        }
+    });
+
+    // Use navigator.sendBeacon for more reliable delivery when page is unloading
+    window.addEventListener('beforeunload', function() {
+        const data = JSON.stringify({
+            room_id: roomId,
+            visitor_id: visitorId,
+            browser_uuid: browserUUID
+        });
+
+        navigator.sendBeacon('/api/visitor_disconnect', data);
+    });
+
+    // Track typing status
+    let isTyping = false;
+    let typingTimeout = null;
+
+    socket.on('connect', function() {
+        console.log('Connected to WebSocket server');
+        isConnected = true;
+
+        // Rejoin room if reconnecting after disconnect
+        socket.emit('join_room', {
+            room_id: roomId,
+            browser_uuid: browserUUID,
+            stored_visitor_id: localStorage.getItem('visitor_id'),
+            stored_room_id: localStorage.getItem('room_id')
+        });
+    });
+
+    socket.on('disconnect', function() {
+        console.log('Disconnected from WebSocket server');
+        isConnected = false;
+    });
+
+    // Listen for settings updates
+    socket.on('settings_updated', function(data) {
+        console.log('Settings updated:', data);
+        if (data.time_format) {
+            currentTimeFormat = data.time_format;
+            // Update all timestamps with the new format
+            updateAllTimestamps();
+        }
+    });
+
+    // Function to format timestamps based on user preference
+    function formatTimestamp(timestamp, format) {
+        // Check if timestamp is valid
+        if (!timestamp) {
+            return '';
+        }
+
+        let date;
+        try {
+            // Try to parse the timestamp
+            date = new Date(timestamp);
+
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+                console.error('Invalid date:', timestamp);
+                return '';
+            }
+        } catch (e) {
+            console.error('Error parsing date:', e);
+            return '';
+        }
+
+        // Use user's detected timezone if available, otherwise use browser's local timezone
+        const effectiveTimezone = userTimezone || timezone;
+
+        console.log('formatTimestamp debug:', {
+            timestamp: timestamp,
+            format: format,
+            effectiveTimezone: effectiveTimezone,
+            userTimezone: userTimezone,
+            timezone: timezone,
+            dateUTC: date.toISOString()
+        });
+
+        try {
+            // Try to use the effective timezone
+            if (effectiveTimezone) {
+                // Format the date in the user's timezone
+                const options = {
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    hour12: format === '12h',
+                    timeZone: effectiveTimezone
+                };
+                const formattedTime = new Intl.DateTimeFormat('en-US', options).format(date);
+                console.log('Formatted time with timezone:', formattedTime);
+                return formattedTime;
+            }
+        } catch (e) {
+            console.error('Error formatting date with timezone:', e);
+        }
+
+        // Fallback to browser's local time (no timezone specified)
+        const fallbackTime = format === '12h'
+            ? date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })
+            : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: false });
+
+        console.log('Fallback time:', fallbackTime);
+        return fallbackTime;
+    }
+
+    // Update all timestamps on the page
+    function updateAllTimestamps() {
+        document.querySelectorAll('.message-time').forEach(element => {
+            const timestamp = element.getAttribute('data-timestamp');
+            const format = currentTimeFormat; // Use current time format
+            if (timestamp) {
+                element.textContent = formatTimestamp(timestamp, format);
+            }
+        });
+
+        // Also update system message times
+        document.querySelectorAll('.system-message-time').forEach(element => {
+            const timestamp = element.getAttribute('data-timestamp');
+            if (timestamp) {
+                element.textContent = formatTimestamp(timestamp, format);
+            }
+        });
+    }
+
+    // Run timezone detection immediately (don't wait for DOMContentLoaded)
+    detectUserTimezone();
+
+    // Also update timestamps when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        updateAllTimestamps();
+    });
+</script>
+{% endblock %}

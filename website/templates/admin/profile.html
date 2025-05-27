@@ -1,0 +1,243 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block header_title %}My Profile{% endblock %}
+
+{% block additional_css %}
+<style>
+    .profile-image-container {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin: 0 auto 20px;
+        position: relative;
+        border: 3px solid #0F4173;
+    }
+
+    .profile-image-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin: 10px auto;
+        border: 3px solid #0F4173;
+    }
+
+    .placeholder-image {
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        background-color: #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid #e0e0e0;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+
+    #image-preview {
+        display: none;
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-top: 10px;
+        border: 3px solid #0F4173;
+    }
+
+    .password-section {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 25px;
+        border-left: 4px solid #0F4173;
+    }
+
+    .password-section h4 {
+        margin-top: 0;
+        color: #444;
+        margin-bottom: 15px;
+    }
+
+    .profile-section {
+        background-color: #f9f9f9;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        border-left: 4px solid #0F4173;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>My Profile</h3>
+        <div>
+            <label class="switch">
+                <input type="checkbox" id="toggle-status" {% if current_user.is_online %}checked{% endif %}>
+                <span class="slider"></span>
+            </label>
+            <span id="status-text">
+                {% if current_user.is_online %}
+                    Online
+                {% else %}
+                    Offline
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="admin-form">
+            <form method="POST" action="{{ url_for('admin.profile') }}" enctype="multipart/form-data">
+                <div class="profile-image-container">
+                    {% if current_user.profile_image %}
+                    <img src="{{ current_user.profile_image }}" alt="{{ current_user.name }}" class="profile-image-preview">
+                    {% else %}
+                    <div class="placeholder-image">
+                        <span class="las la-user" style="font-size: 70px; color: #ccc;"></span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="profile_image">Update Profile Image</label>
+                    <input type="file" id="profile_image" name="profile_image" accept="image/*">
+                    <img id="image-preview" src="#" alt="New image preview">
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" value="{{ current_user.name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" value="{{ current_user.username }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" value="{{ current_user.email }}" required>
+                </div>
+
+                <div class="form-group">
+                    <div class="inline-checkbox">
+                        <input type="checkbox" id="push_enabled" name="push_enabled" {% if current_user.push_enabled %}checked{% endif %}>
+                        <label for="push_enabled">Enable Push Notifications</label>
+                    </div>
+                </div>
+
+                <div class="password-section">
+                    <h4>Change Password</h4>
+                    <p class="text-muted">Leave blank if you don't want to change your password</p>
+
+                    <div class="form-group">
+                        <label for="current_password">Current Password</label>
+                        <input type="password" id="current_password" name="current_password">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password">New Password</label>
+                        <input type="password" id="new_password" name="new_password">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm New Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle online status
+        const toggleStatus = document.getElementById('toggle-status');
+        const statusText = document.getElementById('status-text');
+
+        toggleStatus.addEventListener('change', function() {
+            const status = this.checked;
+
+            fetch('/admin/api/toggle_online_status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    is_online: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusText.textContent = status ? 'Online' : 'Offline';
+                } else {
+                    // Only show alert if there's an actual error and data.error exists
+                    if (data.error) {
+                        alert('Failed to update status: ' + data.error);
+                    }
+                    toggleStatus.checked = !status;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating status.');
+                toggleStatus.checked = !status;
+            });
+        });
+
+        // Image preview
+        const imageInput = document.getElementById('profile_image');
+        const imagePreview = document.getElementById('image-preview');
+
+        imageInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                }
+
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        // Password fields validation
+        const newPasswordField = document.getElementById('new_password');
+        const confirmPasswordField = document.getElementById('confirm_password');
+        const currentPasswordField = document.getElementById('current_password');
+
+        function checkPasswordsMatch() {
+            if (newPasswordField.value && newPasswordField.value !== confirmPasswordField.value) {
+                confirmPasswordField.setCustomValidity("Passwords don't match");
+            } else {
+                confirmPasswordField.setCustomValidity('');
+            }
+        }
+
+        newPasswordField.addEventListener('change', function() {
+            // If a new password is entered, make current password required
+            if (this.value) {
+                currentPasswordField.setAttribute('required', 'required');
+            } else {
+                currentPasswordField.removeAttribute('required');
+            }
+            checkPasswordsMatch();
+        });
+
+        confirmPasswordField.addEventListener('keyup', checkPasswordsMatch);
+    });
+</script>
+{% endblock %}

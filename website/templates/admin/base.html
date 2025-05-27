@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://maxst.icons8.com;
+        script-src 'self' https://cdnjs.cloudflare.com https://cdn.socket.io https://code.jquery.com https://cdn.jsdelivr.net 'unsafe-inline';
+        style-src 'self' https://maxst.icons8.com https://fonts.googleapis.com 'unsafe-inline';
+        img-src 'self' /static/uploads/ https://i.ibb.co/ https://media.giphy.com/ https://*.giphy.com/ https://*.imgbb.com/ https://*.imgur.com https://*.unsplash.com https://*.pixabay.com data:;">
+
+    <title>{% block title %}Admin Dashboard{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Line Awesome Icons -->
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/style.css') }}">
+
+    <!-- Additional CSS -->
+    {% block additional_css %}{% endblock %}
+</head>
+<body>
+    <input type="checkbox" id="nav-toggle">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2><span class="lab la-rocketchat"></span><span>Admin Portal</span></h2>
+        </div>
+        <div class="sidebar-menu">
+            <ul>
+                <li>
+                    <a href="{{ url_for('admin.dashboard') }}" class="{% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                        <span class="las la-tachometer-alt"></span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.chat_history') }}" class="{% if request.endpoint == 'admin.chat_history' %}active{% endif %}">
+                        <span class="las la-history"></span>
+                        <span>Chat History</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.visitors') }}" class="{% if request.endpoint == 'admin.visitors' %}active{% endif %}">
+                        <span class="las la-user-friends"></span>
+                        <span>Visitor Tracking</span>
+                    </a>
+                </li>
+                {% if current_user.is_super_admin %}
+                <li>
+                    <a href="{{ url_for('admin.register') }}" class="{% if request.endpoint == 'admin.register' %}active{% endif %}">
+                        <span class="las la-user-shield"></span>
+                        <span>Admin Management</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.site_settings_page') }}" class="{% if request.endpoint == 'admin.site_settings_page' %}active{% endif %}">
+                        <span class="las la-cog"></span>
+                        <span>Site Settings</span>
+                    </a>
+                </li>
+                {% endif %}
+                <li>
+                    <a href="{{ url_for('admin.business_hours_page') }}" class="{% if request.endpoint == 'admin.business_hours_page' %}active{% endif %}">
+                        <span class="las la-clock"></span>
+                        <span>Business Hours</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.widget_settings') }}" class="{% if request.endpoint == 'admin.widget_settings' %}active{% endif %}">
+                        <span class="las la-code"></span>
+                        <span>Widget Embed</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('views.quick_responses_page') }}" class="{% if request.endpoint == 'views.quick_responses_page' %}active{% endif %}">
+                        <span class="las la-comment-dots"></span>
+                        <span>Quick Responses</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.knowledge_base_management') }}" class="{% if request.endpoint == 'admin.knowledge_base_management' %}active{% endif %}">
+                        <span class="las la-brain"></span>
+                        <span>AI Knowledge Base</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.profile') }}" class="{% if request.endpoint == 'admin.profile' %}active{% endif %}">
+                        <span class="las la-user-circle"></span>
+                        <span>Profile</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('admin.logout') }}">
+                        <span class="las la-sign-out-alt"></span>
+                        <span>Logout</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <h2>
+                <label for="nav-toggle">
+                    <span class="las la-bars"></span>
+                </label>
+                {% block header_title %}Dashboard{% endblock %}
+            </h2>
+            <div class="user-wrapper">
+                {% if current_user.profile_image %}
+                <img src="{{ current_user.profile_image }}" width="40px" height="40px" alt="{{ current_user.name }}" style="border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'las la-user-circle\' style=\'font-size: 40px; color: var(--main-color);\'></span>';">
+                {% else %}
+                <span class="las la-user-circle" style="font-size: 40px; color: var(--main-color);"></span>
+                {% endif %}
+                <div>
+                    <h4>{{ current_user.name }}</h4>
+                    <small>{% if current_user.is_super_admin %}Super Admin{% else %}Admin{% endif %}</small>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <!-- Notification Permission Request -->
+            <div id="notification-permission" style="display: none; background-color: #f8f9fa; padding: 1rem; margin-bottom: 1.5rem; border-radius: 5px; border-left: 4px solid var(--main-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0 0 0.5rem 0;">Enable Notifications</h4>
+                        <p style="margin: 0;">Get real-time notifications for new chat messages and visitor activities.</p>
+                    </div>
+                    <div>
+                        <button id="enable-notifications" style="background-color: var(--main-color); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; margin-right: 0.5rem; cursor: pointer;">Enable</button>
+                        <button id="dismiss-notification" style="background-color: #f1f1f1; color: #333; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Dismiss</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category }}">
+                                {{ message | safe }}
+                                <span class="close-btn">&times;</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Main Content -->
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Notification Sound -->
+    <audio id="notification-sound" preload="auto">
+        <source src="{{ url_for('static', filename='sounds/notification.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <!-- JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/admin/dashboard.js') }}"></script>
+    <script>
+        // Close Flash Messages
+        document.addEventListener('DOMContentLoaded', function() {
+            const closeButtons = document.querySelectorAll('.close-btn');
+            closeButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    this.parentElement.style.display = 'none';
+                });
+            });
+
+            // Auto-close flash messages after 5 seconds
+            setTimeout(function() {
+                const flashMessages = document.querySelectorAll('.flash-message');
+                flashMessages.forEach(function(message) {
+                    message.style.display = 'none';
+                });
+            }, 5000);
+
+            // Check if images load properly
+            document.querySelectorAll('img').forEach(img => {
+                img.addEventListener('error', function() {
+                    console.log('Image failed to load:', this.src);
+                });
+                img.addEventListener('load', function() {
+                    console.log('Image loaded successfully:', this.src);
+                });
+            });
+
+            // Get current room ID if on chat page
+            const currentRoomId = document.querySelector('#chat-messages')?.getAttribute('data-room-id') ||
+                                 document.querySelector('.chat-messages')?.getAttribute('data-room-id') ||
+                                 document.querySelector('.chat-container')?.getAttribute('data-room-id');
+            const adminId = '{{ current_user.id }}';
+            const adminName = '{{ current_user.name|default("Admin")|e }}';
+
+            // Check if we're on a chat page
+            const isOnChatPage = window.location.pathname.includes('/admin/chat/') ||
+                                window.location.pathname.includes('/chat/') ||
+                                currentRoomId;
+
+            // Handle nav-toggle label for hamburger menu
+            if (isOnChatPage && typeof io !== 'undefined') {
+                const navToggleLabel = document.querySelector('label[for="nav-toggle"]');
+                const navToggleCheckbox = document.getElementById('nav-toggle');
+
+                if (navToggleLabel) {
+                    navToggleLabel.addEventListener('click', function(e) {
+                        // Prevent default toggle behavior
+                        e.preventDefault();
+
+                        console.log('Leaving chat room via hamburger menu:', currentRoomId);
+
+                        // Check if we have a socketManager instance from the chat page
+                        if (window.socketManager) {
+                            // Use the socketManager instance
+                            window.socketManager.emit('admin_leave_room', {
+                                room_id: currentRoomId,
+                                admin_id: adminId,
+                                admin_name: adminName
+                            });
+                        } else {
+                            // Create a new socket connection
+                            const socket = io();
+                            socket.emit('admin_leave_room', {
+                                room_id: currentRoomId,
+                                admin_id: adminId,
+                                admin_name: adminName
+                            });
+                        }
+
+                        // Redirect to dashboard
+                        window.location.href = '/admin/dashboard';
+                    });
+                }
+            }
+
+            // Handle sidebar navigation links
+            const sidebarLinks = document.querySelectorAll('.sidebar-menu a:not([target="_blank"])');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // If we're on a chat page and have socket.io available
+                    if (isOnChatPage && typeof io !== 'undefined') {
+                        // Prevent default navigation
+                        e.preventDefault();
+
+                        // Store the href for navigation
+                        const href = link.href;
+
+                        console.log('Leaving chat room via sidebar navigation:', currentRoomId);
+
+                        // Check if we have a socketManager instance from the chat page
+                        if (window.socketManager) {
+                            // Use the socketManager instance
+                            window.socketManager.emit('admin_leave_room', {
+                                room_id: currentRoomId,
+                                admin_id: adminId,
+                                admin_name: adminName
+                            });
+                        } else {
+                            // Create a new socket connection
+                            const socket = io();
+                            socket.emit('admin_leave_room', {
+                                room_id: currentRoomId,
+                                admin_id: adminId,
+                                admin_name: adminName
+                            });
+                        }
+
+                        // Navigate to the clicked link
+                        window.location.href = href;
+                    }
+                });
+            });
+        });
+    </script>
+
+    {% block additional_js %}{% endblock %}
+</body>
+</html>

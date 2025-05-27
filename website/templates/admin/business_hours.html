@@ -1,0 +1,329 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Business Hours{% endblock %}
+
+{% block header_title %}Business Hours{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Set Business Hours</h3>
+    </div>
+    <div class="card-body">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="business-hours-form">
+            <p class="mb-4">Set your business hours to automatically switch between AI and human chat based on availability.</p>
+            
+            <form id="business-hours-form" method="POST" action="/admin/save_business_hours">
+                <h4 class="mb-3">Business Hours</h4>
+                {% for day in days|default([
+                    {'code': 'mon', 'name': 'Monday'},
+                    {'code': 'tue', 'name': 'Tuesday'},
+                    {'code': 'wed', 'name': 'Wednesday'},
+                    {'code': 'thu', 'name': 'Thursday'},
+                    {'code': 'fri', 'name': 'Friday'},
+                    {'code': 'sat', 'name': 'Saturday'},
+                    {'code': 'sun', 'name': 'Sunday'}
+                ]) %}
+                <div class="day-row">
+                    <div class="day-name">{{ day.name }}</div>
+                    <div class="day-times">
+                        {% set open_time = '09:00' %}
+                        {% set close_time = '17:00' %}
+                        {% set is_closed = false %}
+                        
+                        {% if settings and settings.formatted_hours and day.code in settings.formatted_hours %}
+                            {% set open_time = settings.formatted_hours[day.code].open %}
+                            {% set close_time = settings.formatted_hours[day.code].close %}
+                            {% set is_closed = settings.formatted_hours[day.code].closed %}
+                        {% elif settings and settings.hours and day.code in settings.hours %}
+                            {% set open_time = settings.hours[day.code].open %}
+                            {% set close_time = settings.hours[day.code].close %}
+                            {% set is_closed = settings.hours[day.code].closed %}
+                        {% endif %}
+                        
+                        <div class="time-inputs">
+                            <input type="time" class="time-input" name="{{ day.code }}_open" value="{{ open_time }}" {{ 'disabled' if is_closed else '' }}>
+                            <span>to</span>
+                            <input type="time" class="time-input" name="{{ day.code }}_close" value="{{ close_time }}" {{ 'disabled' if is_closed else '' }}>
+                        </div>
+                        <div class="closed-checkbox">
+                            <input type="checkbox" id="{{ day.code }}_closed" name="{{ day.code }}_closed" value="on" {{ 'checked' if is_closed else '' }}>
+                            <label for="{{ day.code }}_closed">Closed</label>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="form-group mt-4">
+                    <label for="away_message">Away Message (shown when outside business hours)</label>
+                    <textarea name="away_message" id="away_message" class="form-control" rows="3">{{ settings.away_message if settings and settings.away_message else "We're currently closed. Please leave a message and we'll get back to you during business hours." }}</textarea>
+                </div>
+                
+                <div class="business-hours-actions">
+                    <button type="submit" id="save-hours-btn" class="btn btn-primary">Save Business Hours</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const businessHoursForm = document.getElementById('business-hours-form');
+        const dayCheckboxes = document.querySelectorAll('input[type="checkbox"][id$="_closed"]');
+        
+        // Debug: Log all checkbox states on page load
+        console.log("Business hours form loaded - checking checkbox states:");
+        dayCheckboxes.forEach(checkbox => {
+            console.log(`${checkbox.id} checked state:`, checkbox.checked);
+            
+            // Make sure time inputs are disabled if day is closed
+            if (checkbox.checked) {
+                const dayCode = checkbox.id.replace('_closed', '');
+                const openInput = document.querySelector(`input[name="${dayCode}_open"]`);
+                const closeInput = document.querySelector(`input[name="${dayCode}_close"]`);
+                
+                if (openInput) openInput.disabled = true;
+                if (closeInput) closeInput.disabled = true;
+            }
+        });
+        
+        // Handle closed day checkboxes
+        dayCheckboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                const dayCode = this.id.replace('_closed', '');
+                const openInput = document.querySelector(`input[name="${dayCode}_open"]`);
+                const closeInput = document.querySelector(`input[name="${dayCode}_close"]`);
+                
+                if (this.checked) {
+                    // Disable time inputs if day is closed
+                    if (openInput) openInput.disabled = true;
+                    if (closeInput) closeInput.disabled = true;
+                } else {
+                    // Enable time inputs if day is open
+                    if (openInput) openInput.disabled = false;
+                    if (closeInput) closeInput.disabled = false;
+                }
+                
+                console.log(`${dayCode} closed checkbox changed to:`, this.checked);
+            });
+        });
+        
+        // Before submitting the form, make sure disabled inputs are enabled so their values are submitted
+        businessHoursForm.addEventListener('submit', function(e) {
+            // Enable all time inputs before submitting to ensure values are sent
+            document.querySelectorAll('.time-input[disabled]').forEach(input => {
+                input.disabled = false;
+            });
+            
+            // Add hidden fields for unchecked checkboxes to ensure the server knows they're unchecked
+            dayCheckboxes.forEach(checkbox => {
+                if (!checkbox.checked) {
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = checkbox.name;
+                    hiddenInput.value = 'off';
+                    businessHoursForm.appendChild(hiddenInput);
+                }
+            });
+            
+            // Let the form submit normally to the action URL
+            return true;
+        });
+        
+        // Helper function to show success message
+        function showSuccessMessage(message) {
+            const successMessage = document.createElement('div');
+            successMessage.className = 'alert alert-success';
+            successMessage.textContent = message;
+            
+            // Insert at top of form
+            businessHoursForm.insertBefore(successMessage, businessHoursForm.firstChild);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                successMessage.remove();
+            }, 3000);
+        }
+        
+        // Helper function to show error message
+        function showErrorMessage(message) {
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'alert alert-danger';
+            errorMessage.textContent = message;
+            
+            // Insert at top of form
+            businessHoursForm.insertBefore(errorMessage, businessHoursForm.firstChild);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                errorMessage.remove();
+            }, 5000);
+        }
+        
+        // Show success message if there's a flash message in the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('success')) {
+            showSuccessMessage('Business hours saved successfully!');
+        }
+        if (urlParams.has('error')) {
+            showErrorMessage('Error saving business hours. Please try again.');
+        }
+    });
+</script>
+{% endblock %}
+
+{% block additional_css %}
+<style>
+    .business-hours-form {
+        padding: 1rem 0;
+    }
+    
+    .day-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    
+    .day-name {
+        width: 100px;
+        font-weight: 500;
+    }
+    
+    .day-times {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+    }
+    
+    .time-inputs {
+        display: flex;
+        align-items: center;
+        margin-right: 1.5rem;
+    }
+    
+    .time-inputs span {
+        margin: 0 0.5rem;
+    }
+    
+    .time-input {
+        width: 100px;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .closed-checkbox {
+        display: flex;
+        align-items: center;
+    }
+    
+    .closed-checkbox input {
+        margin-right: 0.5rem;
+    }
+    
+    .business-hours-actions {
+        margin-top: 1.5rem;
+        text-align: right;
+    }
+    
+    .business-hours-actions button {
+        padding: 0.5rem 1rem;
+        background-color: var(--main-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+        margin-right: 10px;
+    }
+    
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 24px;
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+        background-color: var(--main-color);
+    }
+    
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+    
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+    
+    .alert-success {
+        color: #155724;
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+    }
+    
+    .alert-danger {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+    }
+    
+    .alert-warning {
+        color: #856404;
+        background-color: #fff3cd;
+        border-color: #ffeeba;
+    }
+    
+    .alert-info {
+        color: #0c5460;
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+</style>
+{% endblock %} 

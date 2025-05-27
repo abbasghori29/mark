@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Customer Support Chat</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eef3f8',
+                            100: '#d6e2ed',
+                            200: '#b3c9db',
+                            300: '#85a7c4',
+                            400: '#5783a9',
+                            500: '#0F4173',
+                            600: '#0a3055',
+                            700: '#082745',
+                            800: '#051c31',
+                            900: '#031526',
+                            950: '#020a12',
+                        },
+                        secondary: {
+                            50: '#f5f8fa',
+                            100: '#eaf1f5',
+                            200: '#d0e0ea',
+                            300: '#a9c7d8',
+                            400: '#7aa7c0',
+                            500: '#5a8aa9',
+                            600: '#456f8e',
+                            700: '#385973',
+                            800: '#314a60',
+                            900: '#2c4051',
+                            950: '#1c2a37',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 15px 0 rgba(0, 0, 0, 0.05)',
+                        'medium': '0 4px 20px 0 rgba(0, 0, 0, 0.1)',
+                    },
+                },
+            },
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <div class="min-h-screen flex flex-col justify-center items-center p-4">
+        <div class="w-full max-w-md bg-white rounded-lg shadow-medium p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-semibold text-primary-700 mb-2">Customer Support Chat</h1>
+                <h2 class="text-lg text-gray-600">Admin Login</h2>
+            </div>
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-4 p-4 rounded-lg shadow-soft {% if category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Login Form -->
+            <form method="POST" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <input type="email" id="email" name="email" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" name="password" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                </div>
+                
+                <div>
+                    <button type="submit" 
+                            class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-md transition-colors">
+                        Login
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-6 text-center text-sm text-gray-500">
+                <p>Return to <a href="/" class="text-primary-600 hover:text-primary-800">Website</a></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

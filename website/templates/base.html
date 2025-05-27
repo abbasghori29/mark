@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        font-src 'self' https://ka-f.fontawesome.com https://fonts.googleapis.com https://fonts.gstatic.com;
+        script-src 'self' https://cdnjs.cloudflare.com https://cdn.socket.io https://code.jquery.com https://cdn.jsdelivr.net https://stackpath.bootstrapcdn.com https://cdn.tailwindcss.com 'unsafe-inline';
+        style-src 'self' https://stackpath.bootstrapcdn.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdn.tailwindcss.com 'unsafe-inline';
+        img-src 'self' https://i.ibb.co/ https://media.giphy.com/ https://*.giphy.com/ https://*.imgbb.com/ https://*.imgur.com https://*.unsplash.com https://*.pixabay.com;">
+
+    <title>{% block title %}Customer Support Chat{% endblock %}</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f7ff',
+                            100: '#e6eef5',
+                            200: '#d1e0ed',
+                            300: '#a9c7d8',
+                            400: '#7aa7c0',
+                            500: '#0F4173',
+                            600: '#0F4173',
+                            700: '#0a3055',
+                            800: '#0c2548',
+                            900: '#091b36',
+                            950: '#060f1d',
+                        },
+                        secondary: {
+                            50: '#f5f8fa',
+                            100: '#e1f5fe',
+                            200: '#b3e5fc',
+                            300: '#81d4fa',
+                            400: '#4fc3f7',
+                            500: '#29b6f6',
+                            600: '#00bcd4',
+                            700: '#0097a7',
+                            800: '#00838f',
+                            900: '#006064',
+                            950: '#004d40',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 15px 0 rgba(0, 0, 0, 0.05)',
+                        'medium': '0 4px 20px 0 rgba(0, 0, 0, 0.1)',
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='tailwind-custom.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+
+    <!-- Visitor Identification Script -->
+    <script>
+        // Generate or retrieve browser UUID for visitor identification
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if browser UUID exists in localStorage
+            let browserUUID = localStorage.getItem('browser_uuid');
+
+            // If not, generate a new UUID
+            if (!browserUUID) {
+                // Use crypto.randomUUID() if available (modern browsers)
+                if (window.crypto && window.crypto.randomUUID) {
+                    browserUUID = window.crypto.randomUUID();
+                } else {
+                    // Fallback for older browsers
+                    browserUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0;
+                        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+
+                // Store in localStorage for persistence
+                localStorage.setItem('browser_uuid', browserUUID);
+            }
+
+            // Make browserUUID available globally
+            window.browserUUID = browserUUID;
+
+            // Send browserUUID to server with any API requests
+            const originalFetch = window.fetch;
+            window.fetch = function(url, options = {}) {
+                // Only modify API requests
+                if (url.includes('/api/')) {
+                    options = options || {};
+                    options.headers = options.headers || {};
+
+                    // Add browser UUID to headers
+                    options.headers['X-Browser-UUID'] = browserUUID;
+                }
+
+                return originalFetch(url, options);
+            };
+        });
+    </script>
+
+    <!-- Additional CSS -->
+    {% block additional_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    {% if request.path != '/' %}
+    <div class="app-container" id="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-content">
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-4">Customer Support</h2>
+                    <div class="space-y-1">
+                        <a href="/" class="sidebar-link active">
+                            <i class="fas fa-comments"></i>
+                            <span>Chat</span>
+                        </a>
+                        <a href="/faq" class="sidebar-link">
+                            <i class="fas fa-question-circle"></i>
+                            <span>FAQ</span>
+                        </a>
+                        <a href="/settings" class="sidebar-link">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-gray-200">
+                    <a href="/admin-login" class="sidebar-link">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Admin Login</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <div class="main-wrapper">
+            <!-- Navigation -->
+            <nav class="navbar bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md">
+                <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="menu-button" id="menu-toggle">
+                            <i class="fas fa-bars"></i>
+                        </div>
+                        <a href="/" class="text-xl font-semibold flex items-center">
+                            <i class="fas fa-comments mr-2"></i>
+                            <span>Customer Support</span>
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/admin-login" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all flex items-center">
+                            <i class="fas fa-user-shield mr-2"></i>
+                            <span>Admin Login</span>
+                        </a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Flash Messages -->
+            <div class="main-content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="container mx-auto px-4 mt-4">
+                            {% for category, message in messages %}
+                                <div class="flash-message relative mb-3 p-4 rounded-lg shadow-soft {% if category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                                    <div class="pr-8">{{ message | safe }}</div>
+                                    <button class="absolute top-4 right-4 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove();">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Main Content -->
+                <main class="container mx-auto px-4 py-6">
+                    {% block content %}{% endblock %}
+                </main>
+            </div>
+
+            <!-- Footer -->
+            <footer class="app-footer bg-gray-100 border-t border-gray-200 py-6">
+                <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+                    <p>&copy; {{ now.year }} Customer Support Chat. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+    {% else %}
+    <!-- Simple container for home page -->
+    <div class="h-screen bg-white">
+        <!-- Flash Messages only -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mx-auto px-4 mt-4">
+                    {% for category, message in messages %}
+                        <div class="flash-message relative mb-3 p-4 rounded-lg shadow-soft {% if category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                            <div class="pr-8">{{ message | safe }}</div>
+                            <button class="absolute top-4 right-4 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove();">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Main Content -->
+        <main class="h-full">
+            {% block page_content %}{% endblock %}
+        </main>
+    </div>
+    {% endif %}
+
+    <!-- Chat Widget Button -->
+    <div id="chat-widget-button" class="fixed bottom-6 right-6 w-16 h-16 bg-primary-600 rounded-full shadow-lg flex items-center justify-center cursor-pointer z-50 hover:bg-primary-700 transition-all">
+        <span class="material-icons text-white">support_agent</span>
+    </div>
+
+    <!-- Chat Widget Popup -->
+    <div id="chat-widget-container" class="fixed bottom-0 right-0 z-50 transition-all duration-300 transform translate-y-full" style="width: min(360px, calc(100% - 20px)); height: min(550px, 85vh); max-height: 85vh; margin-right: 10px;">
+        <div class="bg-white rounded-t-lg shadow-lg overflow-hidden flex flex-col h-full">
+            <div class="bot-heading bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex justify-between items-center">
+                <h3 class="text-lg font-semibold truncate max-w-[50%]">Customer Support</h3>
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="chat-mode-selector">
+                        <div class="flex items-center">
+                            <span class="text-xs text-white/80 mr-2" id="chat-mode-label">Human</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="widget-chat-mode-toggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary-300" style="transition: all 0.3s ease;"></div>
+                            </label>
+                        </div>
+                    </div>
+                    <button id="chat-widget-minimize" class="text-white hover:text-gray-200 w-8 h-8 flex items-center justify-center bg-white/20 rounded-md">
+                        <span class="material-icons" style="font-size: 20px;">minimize</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- User Details Section -->
+            <div id="user-details-section" class="bg-white border-b border-gray-200 p-3">
+                <!-- This will be populated by JavaScript based on visitor details -->
+            </div>
+
+            <!-- This iframe will load the chat page -->
+            <iframe id="chat-iframe" src="about:blank" class="w-full flex-grow border-0"></iframe>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.3/purify.min.js"></script>
+    {% if request.path != '/' %}
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    {% endif %}
+
+    <style>
+        /* Chat widget control styles */
+        #chat-widget-button .material-icons {
+            font-size: 32px;
+        }
+
+        #chat-widget-minimize {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        #chat-widget-minimize:hover {
+            background-color: rgba(255, 255, 255, 0.35);
+            transform: scale(1.05);
+        }
+
+        #chat-widget-minimize .material-icons {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        /* User details section styles */
+        #user-details-section {
+            display: none; /* Hidden by default, shown when needed */
+        }
+
+        .user-details-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .user-details-banner .banner-text {
+            display: flex;
+            align-items: center;
+            color: #0F4173;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .user-details-banner .banner-text i {
+            margin-right: 8px;
+            font-size: 16px;
+            color: #0F4173;
+        }
+
+        .user-details-banner .add-details-btn {
+            background-color: #0F4173;
+            color: white;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .user-details-banner .add-details-btn:hover {
+            background-color: #0a3055;
+            transform: translateY(-1px);
+        }
+
+        .user-details-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .user-details-display .details-text {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .user-details-display .details-text .user-name {
+            font-weight: 600;
+            color: #0F4173;
+        }
+
+        .user-details-display .details-text .user-email {
+            font-size: 12px;
+            color: #666;
+            margin-left: 4px;
+        }
+
+        .user-details-display .edit-details-btn {
+            color: #0F4173;
+            background: none;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .user-details-display .edit-details-btn:hover {
+            background-color: rgba(15, 65, 115, 0.1);
+        }
+
+        .user-details-display .edit-details-btn i {
+            font-size: 14px;
+            margin-right: 4px;
+        }
+
+        /* Enhanced toggle switch styling */
+        #widget-chat-mode-toggle:checked + div {
+            background-color: #5680a7 !important;
+        }
+
+        .peer-checked\:bg-secondary-300:checked ~ div {
+            background-color: #0F4173 !important;
+        }
+
+        /* Direct toggle styling override */
+        .chat-mode-selector label div {
+            transition: all 0.3s ease;
+            background-color: #edf2f7 !important; /* Much lighter gray with blue tint */
+        }
+
+        .chat-mode-selector input:checked + div {
+            background-color: #0F4173 !important;
+        }
+
+        /* Ensure control buttons are visible on small screens */
+        @media (max-width: 640px) {
+            .chat-mode-selector {
+                margin-right: 4px;
+            }
+
+            #chat-widget-button {
+                width: 60px;
+                height: 60px;
+            }
+
+            #chat-widget-button .material-icons {
+                font-size: 28px;
+            }
+
+            #chat-widget-minimize {
+                width: 32px !important;
+                height: 32px !important;
+                margin-left: 8px;
+            }
+        }
+    </style>
+
+    <script>
+        // Chat Widget Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatButton = document.getElementById('chat-widget-button');
+            const chatContainer = document.getElementById('chat-widget-container');
+            const chatIframe = document.getElementById('chat-iframe');
+            const chatMinimize = document.getElementById('chat-widget-minimize');
+            const chatModeToggle = document.getElementById('widget-chat-mode-toggle');
+            const chatModeLabel = document.getElementById('chat-mode-label');
+            const userDetailsSection = document.getElementById('user-details-section');
+
+            // Set default state
+            let isOpen = false;
+            let isMinimized = false;
+            let currentChatMode = 'human';
+            let roomId = null;
+            let visitorDetails = {
+                name: '',
+                email: ''
+            };
+
+            // Add CSS transition for smooth animation
+            chatContainer.style.transition = 'transform 0.3s ease-in-out';
+
+            // Open chat function
+            function openChat() {
+                if (!isOpen || isMinimized) {
+                    // Load chat iframe if not already loaded
+                    if (chatIframe.src === 'about:blank') {
+                        const visitorId = '{{ session.get("visitor_id", "") }}' || '{{ "3b19f2b4-0e5f-447f-a2fb-6cf5486d8ea5" }}';
+
+                        if (visitorId) {
+                            // First check if we need to create a new chat room
+                            fetch('/api/check_visitor', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ visitor_id: visitorId })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success && data.room_id) {
+                                    chatIframe.src = '/chat_iframe/' + data.room_id;
+                                } else {
+                                    // If something went wrong, refresh to regenerate session
+                                    window.location.reload();
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error checking visitor:', error);
+                                // Fallback - try to use the visitor ID directly
+                                chatIframe.src = '/chat_iframe/' + visitorId;
+                            });
+                        } else {
+                            // If for some reason we still don't have a visitor ID, reload the page to generate one
+                            window.location.reload();
+                            return;
+                        }
+                    }
+
+                    // Show chat container
+                    chatContainer.style.transform = 'translateY(0)';
+                    isOpen = true;
+                    isMinimized = false;
+
+                    // Hide the chat button
+                    chatButton.style.display = 'none';
+                }
+            }
+
+            // Minimize chat function
+            function minimizeChat() {
+                if (isOpen && !isMinimized) {
+                    chatContainer.style.transform = 'translateY(100%)';
+                    isMinimized = true;
+
+                    // Show the chat button again
+                    chatButton.style.display = 'flex';
+                }
+            }
+
+            // Close chat function
+            function closeChat() {
+                if (isOpen) {
+                    chatContainer.style.transform = 'translateY(100%)';
+                    isOpen = false;
+                    isMinimized = false;
+
+                    // Show the chat button again
+                    chatButton.style.display = 'flex';
+                }
+            }
+
+            // Function to update user details section
+            function updateUserDetailsSection(name, email) {
+                // Check if name or email actually have content
+                const hasName = name && name.trim() !== '';
+                const hasEmail = email && email.trim() !== '';
+
+                if (hasName || hasEmail) {
+                    // User has provided details, show the details display
+                    userDetailsSection.innerHTML = `
+                        <div class="user-details-display">
+                            <div class="details-text">
+                                ${hasName ? `Chatting as: <span class="user-name">${name}</span>` : ''}
+                                ${hasEmail ? `<span class="user-email">(${email})</span>` : ''}
+                            </div>
+                            <button class="edit-details-btn" id="edit-user-details">
+                                <i class="fas fa-pencil"></i> Edit
+                            </button>
+                        </div>
+                    `;
+
+                    // Show the user details section
+                    userDetailsSection.style.display = 'block';
+
+                    // Add event listener to edit button
+                    document.getElementById('edit-user-details').addEventListener('click', function() {
+                        // Send message to iframe to open details modal
+                        if (chatIframe.contentWindow) {
+                            chatIframe.contentWindow.postMessage({
+                                type: 'openDetailsModal'
+                            }, '*');
+                        }
+                    });
+                } else {
+                    // User has not provided details, show the banner
+                    userDetailsSection.innerHTML = `
+                        <div class="user-details-banner">
+                            <div class="banner-text">
+                                <i class="fas fa-user-pen"></i>
+                                <span>Add your details to help us serve you better</span>
+                            </div>
+                            <button class="add-details-btn" id="add-user-details">
+                                Add Details
+                            </button>
+                        </div>
+                    `;
+
+                    // Show the user details section
+                    userDetailsSection.style.display = 'block';
+
+                    // Add event listener to add details button
+                    document.getElementById('add-user-details').addEventListener('click', function() {
+                        // Send message to iframe to open details modal
+                        if (chatIframe.contentWindow) {
+                            chatIframe.contentWindow.postMessage({
+                                type: 'openDetailsModal'
+                            }, '*');
+                        }
+                    });
+                }
+            }
+
+            // Add event listeners
+            chatButton.addEventListener('click', openChat);
+            chatMinimize.addEventListener('click', minimizeChat);
+
+            // Handle chat mode toggle
+            chatModeToggle.addEventListener('change', function() {
+                if (!roomId) return; // Only proceed if we have a room ID
+
+                const isAiMode = this.checked;
+                const newMode = isAiMode ? 'ai' : 'human';
+
+                // Update the label immediately for better UX
+                chatModeLabel.textContent = isAiMode ? 'AI' : 'Human';
+
+                // If switching to human mode, check admin availability first
+                if (newMode === 'human') {
+                    fetch('/admin/api/check_human_mode_availability')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.human_mode_available) {
+                                // Human mode is available, proceed with mode change
+                                updateChatMode(newMode);
+                            } else {
+                                // Human mode is not available, revert toggle and show notification
+                                this.checked = true; // Keep in AI mode
+                                chatModeLabel.textContent = 'AI';
+                                showToastNotification(data.reason || 'Human support is not available right now.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking human mode availability:', error);
+                            // On error, revert toggle
+                            this.checked = true; // Keep in AI mode
+                            chatModeLabel.textContent = 'AI';
+                        });
+                } else {
+                    // For AI mode, no need to check availability
+                    updateChatMode(newMode);
+                }
+            });
+
+            // Function to update chat mode
+            function updateChatMode(newMode) {
+                // Update label
+                chatModeLabel.textContent = newMode === 'ai' ? 'AI' : 'Human';
+
+                // Send message to iframe to toggle mode
+                // The iframe will handle the mode change via socket, no need for duplicate API call
+                if (chatIframe.contentWindow) {
+                    chatIframe.contentWindow.postMessage({
+                        type: 'toggleChatMode',
+                        mode: newMode
+                    }, '*');
+                }
+            }
+
+            // Listen for messages from the iframe
+            window.addEventListener('message', function(event) {
+                // Make sure the message is from our iframe
+                if (event.source === chatIframe.contentWindow) {
+                    const data = event.data;
+
+                    // Handle room ID message
+                    if (data.type === 'roomId') {
+                        roomId = data.roomId;
+
+                        // Update the chat mode toggle based on current mode
+                        if (data.chatMode === 'ai') {
+                            chatModeToggle.checked = true;
+                            chatModeLabel.textContent = 'AI';
+                            currentChatMode = 'ai';
+                        } else {
+                            chatModeToggle.checked = false;
+                            chatModeLabel.textContent = 'Human';
+                            currentChatMode = 'human';
+                        }
+                    }
+
+                    // Handle chat mode change message
+                    if (data.type === 'chatModeChanged') {
+                        if (data.mode === 'ai') {
+                            chatModeToggle.checked = true;
+                            chatModeLabel.textContent = 'AI';
+                        } else {
+                            chatModeToggle.checked = false;
+                            chatModeLabel.textContent = 'Human';
+                        }
+                        currentChatMode = data.mode;
+                    }
+
+                    // Handle admin unavailable message
+                    if (data.type === 'adminUnavailable') {
+                        // Reset toggle to AI mode since human mode is unavailable
+                        chatModeToggle.checked = true;
+                        chatModeLabel.textContent = 'AI';
+                        currentChatMode = 'ai';
+
+                        // Show a toast notification
+                        showToastNotification('No admin is available right now. Please check back again later.');
+                    }
+
+                    // Handle visitor details update
+                    if (data.type === 'visitorDetailsUpdated') {
+                        visitorDetails.name = data.name || '';
+                        visitorDetails.email = data.email || '';
+
+                        // Update the user details section
+                        updateUserDetailsSection(visitorDetails.name, visitorDetails.email);
+                    }
+                }
+            });
+
+            // Function to show a toast notification
+            function showToastNotification(message) {
+                // Check if message is about admin unavailability
+                const isUnavailabilityMessage = message.includes("No admin is available") ||
+                                               message.includes("Outside of business hours") ||
+                                               message.includes("Human support is not available");
+
+                if (isUnavailabilityMessage) {
+                    // Create modal-style notification
+                    let modal = document.getElementById('unavailable-modal');
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'unavailable-modal';
+                        modal.style.position = 'fixed';
+                        modal.style.zIndex = '10000';
+                        modal.style.left = '0';
+                        modal.style.top = '0';
+                        modal.style.width = '100%';
+                        modal.style.height = '100%';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.4)';
+                        modal.style.display = 'flex';
+                        modal.style.alignItems = 'center';
+                        modal.style.justifyContent = 'center';
+
+                        const modalContent = document.createElement('div');
+                        modalContent.style.backgroundColor = '#fefefe';
+                        modalContent.style.padding = '20px';
+                        modalContent.style.borderRadius = '12px';
+                        modalContent.style.maxWidth = '400px';
+                        modalContent.style.width = '90%';
+                        modalContent.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+                        modalContent.style.textAlign = 'center';
+
+                        const closeBtn = document.createElement('span');
+                        closeBtn.style.float = 'right';
+                        closeBtn.style.cursor = 'pointer';
+                        closeBtn.style.fontSize = '24px';
+                        closeBtn.innerHTML = '&times;';
+                        closeBtn.onclick = function() {
+                            document.body.removeChild(modal);
+                        };
+
+                        const emoji = document.createElement('div');
+                        emoji.style.fontSize = '3rem';
+                        emoji.style.marginBottom = '15px';
+                        emoji.textContent = '😔';
+
+                        const title = document.createElement('h3');
+                        title.style.color = '#d32f2f';
+                        title.style.marginBottom = '15px';
+                        title.style.fontWeight = 'bold';
+                        title.textContent = 'Human Support Unavailable';
+
+                        const messageElem = document.createElement('p');
+                        messageElem.id = 'unavailable-message';
+                        messageElem.style.marginBottom = '20px';
+                        messageElem.style.color = '#555';
+
+                        const subtext = document.createElement('p');
+                        subtext.style.fontSize = '0.9rem';
+                        subtext.style.color = '#666';
+                        subtext.style.marginBottom = '15px';
+                        subtext.textContent = 'Our AI assistant is still available to help you.';
+
+                        const okBtn = document.createElement('button');
+                        okBtn.textContent = 'OK, I understand';
+                        okBtn.style.backgroundColor = '#0F4173';
+                        okBtn.style.color = 'white';
+                        okBtn.style.padding = '10px 20px';
+                        okBtn.style.border = 'none';
+                        okBtn.style.borderRadius = '6px';
+                        okBtn.style.cursor = 'pointer';
+                        okBtn.style.fontWeight = '500';
+                        okBtn.onclick = function() {
+                            document.body.removeChild(modal);
+                        };
+
+                        modalContent.appendChild(closeBtn);
+                        modalContent.appendChild(emoji);
+                        modalContent.appendChild(title);
+                        modalContent.appendChild(messageElem);
+                        modalContent.appendChild(subtext);
+                        modalContent.appendChild(okBtn);
+                        modal.appendChild(modalContent);
+
+                        document.body.appendChild(modal);
+                    }
+
+                    // Set message and show modal
+                    document.getElementById('unavailable-message').textContent = message;
+                    modal.style.display = 'flex';
+
+                    // Add click outside to close
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            document.body.removeChild(modal);
+                        }
+                    });
+                } else {
+                    // Create regular toast element if it doesn't exist
+                let toast = document.getElementById('toast-notification');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'toast-notification';
+                    toast.style.position = 'fixed';
+                    toast.style.bottom = '80px';
+                    toast.style.right = '20px';
+                    toast.style.backgroundColor = '#333';
+                    toast.style.color = 'white';
+                    toast.style.padding = '12px 20px';
+                    toast.style.borderRadius = '4px';
+                    toast.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+                    toast.style.zIndex = '10000';
+                    toast.style.transition = 'opacity 0.3s ease-in-out';
+                    toast.style.opacity = '0';
+                    document.body.appendChild(toast);
+                }
+
+                // Set message and show toast
+                toast.textContent = message;
+                toast.style.opacity = '1';
+
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+                }
+            }
+        });
+    </script>
+
+    {% block additional_js %}{% endblock %}
+</body>
+</html>

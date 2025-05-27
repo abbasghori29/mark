@@ -1,0 +1,121 @@
+/* Chat Widget Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Chat History Styles */
+.chat-history {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.chat-history-item {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.chat-history-header {
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.chat-history-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.chat-history-messages {
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.history-message {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 80%;
+}
+
+.history-message.visitor {
+    background-color: #e6f7ff;
+    margin-left: auto;
+}
+
+.history-message.admin {
+    background-color: #f0f2f5;
+}
+
+.history-message-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-top: 4px;
+    color: #666;
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge.active {
+    background-color: #e6f7ff;
+    color: #1890ff;
+}
+
+.badge.inactive {
+    background-color: #f5f5f5;
+    color: #999;
+}
+
+.badge.human {
+    background-color: #e6f7ff;
+    color: #1890ff;
+}
+
+.badge.ai {
+    background-color: #f6ffed;
+    color: #52c41a;
+} 

@@ -1,0 +1,10 @@
+{
+    "IMGBB_KEY": "",
+    "SECRET_KEY": "customer_support_chat_secret_key",
+    "UPLOAD_FOLDER": "website/static/uploads",
+    "UPLOAD_URL_PATH": "/static/uploads",
+    "GIPHY_API_KEY": "",
+    "ADMIN_USERNAME": "admin@admin.com",
+    "ADMIN_PASSWORD": "admin"
+  }
+  

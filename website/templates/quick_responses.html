@@ -1,0 +1,951 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Quick Responses{% endblock %}
+
+{% block header_title %}Quick Responses{% endblock %}
+
+{% block additional_css %}
+<!-- Google Fonts: Poppins -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Line Awesome Icons -->
+<link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+<style>
+    :root {
+        --primary-color: #4a6cf7;
+        --primary-dark: #3b5bd6;
+        --secondary-color: #6b7280;
+        --background-light: #f8fafc;
+        --text-dark: #1f2937;
+        --border-light: #e5e7eb;
+        --success-bg: #d1fae5;
+        --success-text: #065f46;
+        --danger-bg: #fef2f2;
+        --danger-text: #b91c1c;
+    }
+
+    body {
+        font-family: 'Poppins', sans-serif;
+        background-color: var(--background-light);
+        color: var(--text-dark);
+    }
+
+    /* Container */
+    .container-fluid {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    /* Card */
+    .card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: none;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        padding: 1.5rem 2rem;
+        background: linear-gradient(135deg, #ffffff, var(--background-light));
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .card-header h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin: 0;
+        color: var(--text-dark);
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Buttons */
+    .btn {
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: #ffffff;
+    }
+
+    .btn-primary:hover {
+        background-color: var(--primary-dark);
+        border-color: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(74, 108, 247, 0.3);
+    }
+
+    .btn-outline-secondary {
+        border-color: var(--border-light);
+        color: var(--secondary-color);
+        background: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: #ffffff;
+    }
+
+    .btn-icon {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 1.1rem;
+    }
+
+    .btn-outline-primary {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: transparent;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: var(--primary-color);
+        color: #ffffff;
+    }
+
+    .btn-outline-danger {
+        border-color: var(--danger-text);
+        color: var(--danger-text);
+        background: transparent;
+    }
+
+    .btn-outline-danger:hover {
+        background-color: var(--danger-text);
+        color: #ffffff;
+    }
+
+    /* Modal Buttons */
+    .modal-btn {
+        padding: 0.75rem 1.5rem;
+        min-width: 130px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .modal-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Table */
+    .table-container {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        background: #ffffff;
+    }
+
+    .table {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table th {
+        background: var(--background-light);
+        color: var(--text-dark);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        padding: 1.2rem 1.5rem;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .table td {
+        padding: 1.2rem 1.5rem;
+        border-bottom: 1px solid var(--border-light);
+        vertical-align: middle;
+        font-size: 0.95rem;
+    }
+
+    .table tbody tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f1f5f9;
+    }
+
+    .response-title {
+        font-weight: 500;
+        font-size: 1rem;
+        color: var(--text-dark);
+    }
+
+    .response-content {
+        max-width: 400px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--secondary-color);
+        font-size: 0.9rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--secondary-color);
+        margin-bottom: 1.5rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .empty-state h3 {
+        font-size: 1.6rem;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state p {
+        color: var(--secondary-color);
+        font-size: 1rem;
+        max-width: 450px;
+        margin: 0 auto 1.5rem;
+    }
+
+    /* Modal Styling */
+    .modal {
+        z-index: 1055;
+        display: none; /* Hidden by default */
+    }
+
+    .modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: transparent;
+    }
+
+    .modal-backdrop {
+        z-index: 1050;
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px); /* Blur background */
+    }
+
+    .modal-dialog {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 3.5rem);
+        margin: 1.75rem auto;
+        max-width: 600px; /* Consistent width for larger modals */
+    }
+
+    .modal-dialog.modal-sm {
+        max-width: 400px; /* Smaller width for delete modal */
+    }
+
+    .modal-dialog-centered {
+        align-items: center;
+    }
+
+    .modal-content {
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        border: none;
+        background: #ffffff;
+        animation: modal-in 0.3s ease-out forwards;
+    }
+
+    @keyframes modal-in {
+        0% {
+            opacity: 0;
+            transform: translateY(-15px) scale(0.99);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #ffffff, var(--background-light));
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-light);
+        border-radius: 16px 16px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin: 0;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+        font-size: 0.95rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        background: #ffffff;
+        border-top: 1px solid var(--border-light);
+        border-radius: 0 0 16px 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+    }
+
+    /* Forms */
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: var(--text-dark);
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .form-control {
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        background: #ffffff;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        width: 100%; /* Full width for inputs and textareas */
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.15);
+        outline: none;
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    /* Delete Modal Specific */
+    .modal-body.text-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 2rem;
+    }
+
+    .modal-body .las {
+        font-size: 2.5rem;
+        color: var(--danger-text);
+    }
+
+    .modal-body p {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--text-dark);
+    }
+
+    /* Alerts */
+    .alert {
+        border-radius: 10px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        font-size: 0.95rem;
+    }
+
+    .alert-success {
+        background: var(--success-bg);
+        color: var(--success-text);
+    }
+
+    .alert-danger {
+        background: var(--danger-bg);
+        color: var(--danger-text);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: 1rem;
+        }
+
+        .card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .card-header .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .table th, .table td {
+            padding: 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        .response-content {
+            max-width: 200px;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .modal-dialog {
+            margin: 0.5rem;
+            min-height: calc(100vh - 1rem);
+            max-width: 90%;
+        }
+
+        .modal-btn {
+            min-width: 100px;
+            padding: 0.5rem 1rem;
+        }
+
+        .modal-body {
+            padding: 1rem;
+        }
+    }
+
+    /* Loading spinner */
+    .spinner-border {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-width: 0.2em;
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header">
+            <h2>Quick Response Library</h2>
+            <button class="btn btn-primary" id="addResponseBtn">
+                <span class="las la-plus"></span> Add Response
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- Alert Placeholder -->
+            <div id="alert-container"></div>
+
+            <!-- Conditional Rendering for Responses -->
+            {% if quick_responses and quick_responses|length > 0 %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%">Title</th>
+                            <th style="width: 50%">Content</th>
+                            <th style="width: 15%">Created</th>
+                            <th style="width: 15%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="responses-table-body">
+                        {% for response in quick_responses %}
+                        <tr data-id="{{ response.id }}">
+                            <td><div class="response-title">{{ response.title }}</div></td>
+                            <td><div class="response-content">{{ response.content }}</div></td>
+                            <td>{{ response.created_at.strftime('%b %d, %Y') }}</td>
+                            <td>
+                                <div class="action-buttons d-flex gap-2">
+                                    <button class="btn btn-icon btn-outline-primary edit-response" 
+                                            data-id="{{ response.id }}" 
+                                            data-title="{{ response.title }}" 
+                                            data-content="{{ response.content }}"
+                                            title="Edit" 
+                                            aria-label="Edit response">
+                                        <span class="las la-edit"></span>
+                                    </button>
+                                    <button class="btn btn-icon btn-outline-danger delete-response" 
+                                            data-id="{{ response.id }}" 
+                                            title="Delete" 
+                                            aria-label="Delete response">
+                                        <span class="las la-trash"></span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <span class="las la-comment-dots"></span>
+                </div>
+                <h3>No Responses Yet</h3>
+                <p>Create reusable responses to streamline customer interactions and save time during chat sessions.</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addResponseModal">
+                    <span class="las la-plus"></span> Create First Response
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Response Modal -->
+<div class="modal fade" id="addResponseModal" tabindex="-1" aria-labelledby="addResponseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addResponseModalLabel">Add Quick Response</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addResponseForm">
+                    <div class="form-group">
+                        <label for="responseTitle" class="form-label">Response Title</label>
+                        <input type="text" class="form-control w-100" id="responseTitle" placeholder="Enter title (e.g., Welcome Message)" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="responseContent" class="form-label">Response Content</label>
+                        <textarea class="form-control w-100" id="responseContent" rows="4" placeholder="Write your response here..." required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary modal-btn" data-bs-dismiss="modal">
+                    <span class="las la-times"></span> Cancel
+                </button>
+                <button type="button" class="btn btn-primary modal-btn" id="saveResponseBtn">
+                    <span id="saveSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span class="las la-save"></span> Save Response
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Response Modal -->
+<div class="modal fade" id="editResponseModal" tabindex="-1" aria-labelledby="editResponseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editResponseModalLabel">Edit Quick Response</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editResponseForm">
+                    <input type="hidden" id="editResponseId">
+                    <div class="form-group">
+                        <label for="editResponseTitle" class="form-label">Response Title</label>
+                        <input type="text" class="form-control w-100" id="editResponseTitle" placeholder="Enter title (e.g., Welcome Message)" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editResponseContent" class="form-label">Response Content</label>
+                        <textarea class="form-control w-100" id="editResponseContent" rows="4" placeholder="Write your response here..." required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary modal-btn" data-bs-dismiss="modal">
+                    <span class="las la-times"></span> Cancel
+                </button>
+                <button type="button" class="btn btn-primary modal-btn" id="updateResponseBtn">
+                    <span id="updateSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span class="las la-save"></span> Update Response
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteResponseModal" tabindex="-1" aria-labelledby="deleteResponseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteResponseModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <span class="las la-exclamation-triangle"></span>
+                <p>Are you sure you want to delete this response?</p>
+                <input type="hidden" id="deleteResponseId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary modal-btn" data-bs-dismiss="modal">
+                    <span class="las la-times"></span> Cancel
+                </button>
+                <button type="button" class="btn btn-danger modal-btn" id="confirmDeleteBtn">
+                    <span id="deleteSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    <span class="las la-trash"></span> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+<script>
+    // Initialize Bootstrap modals
+    document.addEventListener('DOMContentLoaded', function() {
+        // Debugging logs
+        console.log('DOM Content Loaded');
+        console.log('Bootstrap present:', typeof bootstrap !== 'undefined');
+        console.log('jQuery present:', typeof jQuery !== 'undefined');
+        
+        // Get modal elements
+        const addModalEl = document.getElementById('addResponseModal');
+        const editModalEl = document.getElementById('editResponseModal');
+        const deleteModalEl = document.getElementById('deleteResponseModal');
+        
+        console.log('Modal elements found:', addModalEl, editModalEl, deleteModalEl);
+        
+        // Create Bootstrap modal instances
+        const modals = {};
+        
+        try {
+            if (typeof bootstrap !== 'undefined') {
+                modals.addModal = new bootstrap.Modal(addModalEl, { backdrop: 'static', keyboard: false });
+                modals.editModal = new bootstrap.Modal(editModalEl, { backdrop: 'static', keyboard: false });
+                modals.deleteModal = new bootstrap.Modal(deleteModalEl, { backdrop: 'static', keyboard: false });
+                console.log('Modals initialized successfully');
+            } else {
+                console.error('Bootstrap not found!');
+            }
+        } catch (e) {
+            console.error('Error initializing modals:', e);
+        }
+        
+        // Add click handler for add button
+        const addResponseBtn = document.getElementById('addResponseBtn');
+        if (addResponseBtn) {
+            addResponseBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Add button clicked');
+                try {
+                    modals.addModal.show();
+                } catch (error) {
+                    console.error('Error showing add modal:', error);
+                }
+            });
+        }
+        
+        // Add click handlers for edit buttons
+        document.querySelectorAll('.edit-response').forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const id = this.getAttribute('data-id');
+                const title = this.getAttribute('data-title');
+                const content = this.getAttribute('data-content');
+                
+                console.log('Edit button clicked for ID:', id);
+                
+                document.getElementById('editResponseId').value = id;
+                document.getElementById('editResponseTitle').value = title;
+                document.getElementById('editResponseContent').value = content;
+                
+                try {
+                    modals.editModal.show();
+                } catch (error) {
+                    console.error('Error showing edit modal:', error);
+                }
+            });
+        });
+        
+        // Add click handlers for delete buttons
+        document.querySelectorAll('.delete-response').forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const id = this.getAttribute('data-id');
+                
+                console.log('Delete button clicked for ID:', id);
+                
+                document.getElementById('deleteResponseId').value = id;
+                
+                try {
+                    modals.deleteModal.show();
+                } catch (error) {
+                    console.error('Error showing delete modal:', error);
+                }
+            });
+        });
+        
+        // Form submission handlers
+        document.getElementById('saveResponseBtn').addEventListener('click', function() {
+            const title = document.getElementById('responseTitle').value.trim();
+            const content = document.getElementById('responseContent').value.trim();
+            
+            if (!title || !content) {
+                showAlert('Please fill in all fields', 'danger');
+                return;
+            }
+            
+            // Show loading spinner
+            const spinner = document.getElementById('saveSpinner');
+            spinner.classList.remove('d-none');
+            this.disabled = true;
+            
+            // API call
+            fetch('/api/quick_responses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: title,
+                    content: content
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide spinner
+                spinner.classList.add('d-none');
+                this.disabled = false;
+                
+                if (data.success) {
+                    // Reset form
+                    document.getElementById('responseTitle').value = '';
+                    document.getElementById('responseContent').value = '';
+                    
+                    // Close modal
+                    modals.addModal.hide();
+                    
+                    // Show success message
+                    showAlert('Quick response created successfully!');
+                    
+                    // Reload page to show new response
+                    window.location.reload();
+                } else {
+                    showAlert(data.error || 'Failed to create quick response', 'danger');
+                }
+            })
+            .catch(error => {
+                // Hide spinner
+                spinner.classList.add('d-none');
+                this.disabled = false;
+                
+                console.error('Error creating quick response:', error);
+                showAlert('An error occurred while creating the quick response', 'danger');
+            });
+        });
+        
+        // Update response handler
+        document.getElementById('updateResponseBtn').addEventListener('click', function() {
+            const responseId = document.getElementById('editResponseId').value;
+            const title = document.getElementById('editResponseTitle').value.trim();
+            const content = document.getElementById('editResponseContent').value.trim();
+            
+            if (!title || !content) {
+                showAlert('Please fill in all fields', 'danger');
+                return;
+            }
+            
+            // Show loading spinner
+            const spinner = document.getElementById('updateSpinner');
+            spinner.classList.remove('d-none');
+            this.disabled = true;
+            
+            // API call
+            fetch(`/api/quick_responses/${responseId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: title,
+                    content: content
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide spinner
+                spinner.classList.add('d-none');
+                this.disabled = false;
+                
+                if (data.success) {
+                    // Close modal
+                    modals.editModal.hide();
+                    
+                    // Show success message
+                    showAlert('Quick response updated successfully!');
+                    
+                    // Update row in table without reloading
+                    const row = document.querySelector(`tr[data-id="${responseId}"]`);
+                    if (row) {
+                        row.querySelector('.response-title').textContent = title;
+                        row.querySelector('.response-content').textContent = content;
+                        
+                        // Update data attributes for edit button
+                        const editBtn = row.querySelector('.edit-response');
+                        editBtn.setAttribute('data-title', title);
+                        editBtn.setAttribute('data-content', content);
+                    }
+                } else {
+                    showAlert(data.error || 'Failed to update quick response', 'danger');
+                }
+            })
+            .catch(error => {
+                // Hide spinner
+                spinner.classList.add('d-none');
+                this.disabled = false;
+                
+                console.error('Error updating quick response:', error);
+                showAlert('An error occurred while updating the quick response', 'danger');
+            });
+        });
+        
+        // Delete response
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            const responseId = document.getElementById('deleteResponseId').value;
+            
+            // Show loading spinner
+            const spinner = document.getElementById('deleteSpinner');
+            spinner.classList.remove('d-none');
+            this.disabled = true;
+            
+            // API call
+            fetch(`/api/quick_responses/${responseId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide spinner
+                spinner.classList.add('d-none');
+                this.disabled = false;
+                
+                if (data.success) {
+                    // Close modal
+                    modals.deleteModal.hide();
+                    
+                    // Show success message
+                    showAlert('Quick response deleted successfully!');
+                    
+                    // Remove row from table without reloading
+                    const row = document.querySelector(`tr[data-id="${responseId}"]`);
+                    if (row) {
+                        row.remove();
+                        
+                        // If no more responses, reload to show empty state
+                        const tableBody = document.getElementById('responses-table-body');
+                        if (tableBody && tableBody.children.length === 0) {
+                            window.location.reload();
+                        }
+                    }
+                } else {
+                    showAlert(data.error || 'Failed to delete quick response', 'danger');
+                }
+            })
+            .catch(error => {
+                // Hide spinner
+                spinner.classList.add('d-none');
+                this.disabled = false;
+                
+                console.error('Error deleting quick response:', error);
+                showAlert('An error occurred while deleting the quick response', 'danger');
+            });
+        });
+        
+        // Helper function to show alert
+        function showAlert(message, type = 'success') {
+            const alertContainer = document.getElementById('alert-container');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Automatically dismiss after 5 seconds
+            setTimeout(function() {
+                const alert = document.querySelector('.alert');
+                if (alert) {
+                    alert.classList.remove('show');
+                    setTimeout(function() {
+                        if (alert.parentNode) {
+                            alert.parentNode.removeChild(alert);
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+    });
+
+    // Fallback method using jQuery if available
+    if (typeof bootstrap === 'undefined' && typeof jQuery !== 'undefined') {
+        console.log('Using jQuery fallback for modals');
+        
+        // Add click handler for add button
+        $('#addResponseBtn').on('click', function() {
+            $('#addResponseModal').modal('show');
+        });
+        
+        // Add click handlers for edit buttons
+        $('.edit-response').on('click', function() {
+            const id = $(this).data('id');
+            const title = $(this).data('title');
+            const content = $(this).data('content');
+            
+            $('#editResponseId').val(id);
+            $('#editResponseTitle').val(title);
+            $('#editResponseContent').val(content);
+            
+            $('#editResponseModal').modal('show');
+        });
+        
+        // Add click handlers for delete buttons
+        $('.delete-response').on('click', function() {
+            const id = $(this).data('id');
+            $('#deleteResponseId').val(id);
+            $('#deleteResponseModal').modal('show');
+        });
+    }
+</script>
+{% endblock %}

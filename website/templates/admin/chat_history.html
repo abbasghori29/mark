@@ -1,0 +1,941 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Chat History{% endblock %}
+
+{% block header_title %}Chat History{% endblock %}
+
+{% block additional_css %}
+<style>
+    :root {
+        --main-color: #0F4173;
+    }
+    
+    .filter-container {
+        display: flex;
+        margin-bottom: 1.5rem;
+        background: white;
+        padding: 1rem;
+        border-radius: 5px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        margin-right: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .filter-group label {
+        display: block;
+        margin-bottom: 0.3rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .filter-group select,
+    .filter-group input {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        min-width: 150px;
+    }
+    
+    .filter-actions {
+        display: flex;
+        align-items: flex-end;
+        margin-left: auto;
+    }
+    
+    .filter-actions button {
+        margin-left: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--main-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .chat-item {
+        cursor: pointer;
+    }
+    
+    .chat-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .pagination {
+        display: flex;
+        justify-content: center;
+        margin-top: 1.5rem;
+    }
+    
+    .pagination a, .pagination span {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        margin: 0 0.2rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        text-decoration: none;
+        color: var(--main-color);
+    }
+    
+    .pagination a:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .pagination .active {
+        background-color: var(--main-color);
+        color: white;
+        border-color: var(--main-color);
+    }
+    
+    .pagination .disabled {
+        color: #aaa;
+        cursor: not-allowed;
+    }
+    
+    .pagination-info {
+        text-align: center;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .view-history {
+        background-color: var(--main-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+    
+    .view-history:hover {
+        background-color: #0a3055;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .view-history-btn, .start-chat-btn {
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s;
+    }
+    
+    .view-history-btn {
+        background-color: #f0f4f8;
+        color: #0F4173;
+        border: 1px solid #d1e0ed;
+    }
+    
+    .view-history-btn:hover {
+        background-color: #e0e4e8;
+    }
+    
+    .start-chat-btn {
+        background-color: #0F4173;
+        color: white;
+    }
+    
+    .start-chat-btn:hover {
+        background-color: #0a3055;
+    }
+    
+    .search-container {
+        display: flex;
+        margin-right: 1.5rem;
+        margin-bottom: 0.5rem;
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .search-input {
+        flex-grow: 1;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px 0 0 4px;
+        font-size: 0.9rem;
+    }
+    
+    .search-btn {
+        padding: 0.5rem 1rem;
+        background: var(--main-color);
+        color: white;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        cursor: pointer;
+    }
+    
+    .date-picker-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .date-picker {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 140px;
+    }
+    
+    .avatar-initials {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #0F4173;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+    
+    /* Profile avatar for admin images */
+    .profile-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* Admin and AI avatar on right - closer to message */
+    .admin-message .avatar-initials,
+    .admin-message .profile-avatar,
+    .ai-message .avatar-initials {
+        margin-left: 6px;
+    }
+    
+    /* Visitor avatar on left */
+    .message-container:not(.admin-message):not(.ai-message) .avatar-initials {
+        margin-right: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="filter-container">
+    <!-- Add search bar -->
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search by name, email or IP..." class="search-input">
+        <button id="search-btn" class="search-btn"><i class="las la-search"></i></button>
+    </div>
+    
+    <div class="filter-group">
+        <label for="date_range">Date Range</label>
+        <div class="date-picker-container">
+            <input type="date" id="start_date" name="start_date" value="{{ request.args.get('start_date', '') }}" class="date-picker">
+            <span>to</span>
+            <input type="date" id="end_date" name="end_date" value="{{ request.args.get('end_date', '') }}" class="date-picker">
+        </div>
+    </div>
+    
+    <div class="filter-group">
+        <label for="admin">Admin</label>
+        <select id="admin" name="admin">
+            <option value="all" {% if request.args.get('admin') == 'all' %}selected{% endif %}>All Admins</option>
+            <option value="{{ current_user.id }}" {% if request.args.get('admin') == current_user.id %}selected{% endif %}>My Chats</option>
+            {% for admin in admins %}
+                <option value="{{ admin.id }}" {% if request.args.get('admin') == admin.id|string %}selected{% endif %}>{{ admin.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="filter-actions">
+        <button id="apply-filters">Apply Filters</button>
+        <button id="reset-filters">Reset</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Chat History</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table width="100%">
+                <thead>
+                    <tr>
+                        <td>Visitor</td>
+                        <td>Email</td>
+                        <td>Visit Count</td>
+                        <td>Message Count</td>
+                        <td>Admin</td>
+                        <td>Actions</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for chat in rooms %}
+                    <tr class="chat-item" data-id="{{ chat.room.id }}">
+                        <td>
+                            {% if chat.visitor and chat.visitor.name %}
+                                {{ chat.visitor.name }}
+                            {% else %}
+                                Visitor ({{ chat.room.visitor_ip }})
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if chat.visitor and chat.visitor.email %}
+                                {{ chat.visitor.email }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ chat.visitor.visit_count if chat.visitor else 1 }}</td>
+                        <td>{{ chat.message_count }}</td>
+                        <td>
+                            {% if chat.room.has_admin %}
+                                {% if chat.admin_names %}
+                                    {{ chat.admin_names|join(', ') }}
+                                {% else %}
+                                    AI Assistant
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="view-history-btn" data-id="{{ chat.room.id }}">
+                                    <span class="las la-history"></span> View History
+                                </button>
+                                <button class="start-chat-btn" data-id="{{ chat.room.id }}">
+                                    <span class="las la-comment"></span> Start Chat
+                            </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No chat history found matching the selected filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if pagination %}
+<div class="pagination">
+    {% if pagination.has_prev %}
+        <a href="{{ url_for('admin.chat_history', page=pagination.prev_num, search=search_term, start_date=start_date, end_date=end_date, status=status_filter, admin=admin_filter) }}">&laquo; Prev</a>
+    {% else %}
+        <span class="disabled">&laquo; Prev</span>
+    {% endif %}
+    
+    {% for page in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+        {% if page %}
+            {% if page == pagination.page %}
+                <span class="active">{{ page }}</span>
+            {% else %}
+                <a href="{{ url_for('admin.chat_history', page=page, search=search_term, start_date=start_date, end_date=end_date, status=status_filter, admin=admin_filter) }}">{{ page }}</a>
+            {% endif %}
+        {% else %}
+            <span class="ellipsis">…</span>
+        {% endif %}
+    {% endfor %}
+    
+    {% if pagination.has_next %}
+        <a href="{{ url_for('admin.chat_history', page=pagination.next_num, search=search_term, start_date=start_date, end_date=end_date, status=status_filter, admin=admin_filter) }}">Next &raquo;</a>
+    {% else %}
+        <span class="disabled">Next &raquo;</span>
+    {% endif %}
+</div>
+<div class="pagination-info">
+    Showing {{ pagination.items|length }} of {{ pagination.total }} chats
+</div>
+{% endif %}
+
+<!-- Chat History Modal -->
+<div id="history-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Chat History</h3>
+            <span class="close" id="close-history-modal">&times;</span>
+        </div>
+        <div id="history-content" class="p-4 bg-gray-50 overflow-y-auto" style="max-height: 70vh; scrollbar-width: thin;">
+            <p>Loading chat history...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Modal Styling */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1050;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #fff;
+        margin: 5vh auto;
+        width: 85%;
+        max-width: 900px;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        animation: modalFadeIn 0.3s;
+        overflow: hidden;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid #e5e5e5;
+        background-color: #0F4173;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .close {
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+        transition: opacity 0.2s;
+        padding: 0 8px;
+    }
+
+    .close:hover {
+        opacity: 0.8;
+    }
+
+    #history-content {
+        padding: 20px;
+        overflow-y: auto;
+        flex-grow: 1;
+        background-color: #f9fbfd;
+        scrollbar-color: rgba(15, 65, 115, 0.3) transparent;
+    }
+
+    #history-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #history-content::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #history-content::-webkit-scrollbar-thumb {
+        background-color: rgba(15, 65, 115, 0.3);
+        border-radius: 8px;
+    }
+
+    @keyframes modalFadeIn {
+        from {opacity: 0; transform: translateY(-30px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+
+    /* Chat History Item Styling */
+    .chat-history-item {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .chat-history-item:last-child {
+        border-bottom: none;
+    }
+    
+    /* Message styling */
+    .message-container {
+        display: flex;
+        margin-bottom: 16px;
+        max-width: 75%;
+        align-items: flex-start;
+        position: relative;
+    }
+    
+    /* Admin and AI messages (on right) */
+    .message-container.admin-message, 
+    .message-container.ai-message {
+        margin-left: auto;
+        margin-right: 0;
+        flex-direction: row-reverse;
+    }
+    
+    /* Visitor messages (on left) */
+    .message-container:not(.admin-message):not(.ai-message) {
+        margin-right: auto;
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+        max-width: 75%;
+        flex-direction: row;
+    }
+    
+    .avatar-initials {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #0F4173;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+    
+    /* Profile avatar for admin images */
+    .profile-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* Admin and AI avatar on right - closer to message */
+    .admin-message .avatar-initials,
+    .admin-message .profile-avatar,
+    .ai-message .avatar-initials {
+        margin-left: 6px;
+    }
+    
+    /* Visitor avatar on left */
+    .message-container:not(.admin-message):not(.ai-message) .avatar-initials {
+        margin-right: 6px;
+    }
+    
+    .visitor-avatar {
+        background-color: #e6eef5;
+        color: #0F4173;
+        border: 1px solid #d1e0ed;
+    }
+    
+    .ai-avatar {
+        background-color: #e1f5fe;
+        color: #00bcd4;
+        border: 1px solid #b3e5fc;
+    }
+    
+    .message {
+        padding: 12px 16px;
+        border-radius: 16px;
+        position: relative;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        flex: 1;
+        max-width: calc(100% - 45px);
+    }
+    
+    .message-visitor {
+        background-color: #e6eef5;
+        color: #333;
+        border-top-left-radius: 4px;
+    }
+    
+    .message-admin {
+        background-color: #0F4173;
+        color: white;
+        border-top-right-radius: 4px;
+    }
+    
+    .message-ai {
+        background-color: #e1f5fe;
+        color: #333;
+        border-top-right-radius: 4px;
+        border-left: 3px solid #00bcd4;
+    }
+    
+    .message-sender {
+        font-weight: 500;
+        font-size: 12px;
+        margin-bottom: 5px;
+        opacity: 0.8;
+    }
+    
+    .message-content {
+        font-size: 14px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+    
+    .message-meta {
+        display: flex;
+        justify-content: flex-end;
+        font-size: 11px;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
+    
+    /* System message styles */
+    .system-message {
+        display: flex;
+        justify-content: center;
+        margin: 16px 0;
+        padding: 0 15px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .system-message-content {
+        background-color: #ffffff;
+        color: #6c757d;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+        max-width: 80%;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        display: inline-block;
+    }
+    
+    .system-message-time {
+        margin-left: 8px;
+        opacity: 0.6;
+        font-size: 11px;
+        display: inline-block;
+    }
+    
+    /* Date divider */
+    .date-divider {
+        text-align: center;
+        margin: 1rem 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+        position: relative;
+    }
+    
+    .date-divider:before, .date-divider:after {
+        content: "";
+        display: inline-block;
+        height: 1px;
+        position: relative;
+        vertical-align: middle;
+        width: 25%;
+        background-color: #e0e0e0;
+    }
+    
+    .date-divider:before {
+        right: 1em;
+        margin-left: -50%;
+    }
+    
+    .date-divider:after {
+        left: 1em;
+        margin-right: -50%;
+    }
+    
+    /* Responsive modal adjustments */
+    @media (max-width: 768px) {
+        .modal-content {
+            width: 95%;
+            margin: 3vh auto;
+            max-height: 94vh;
+        }
+        
+        .modal-header {
+            padding: 12px 16px;
+        }
+        
+        .modal-header h3 {
+            font-size: 1.1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        const searchBtn = document.getElementById('search-btn');
+        const searchInput = document.getElementById('search-input');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        const viewHistoryBtns = document.querySelectorAll('.view-history-btn');
+        
+        // Search functionality
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        function performSearch() {
+            const searchTerm = searchInput.value.trim();
+            if (searchTerm) {
+                // Get current URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // Add search parameter
+                urlParams.set('search', searchTerm);
+                
+                // Reset to first page when searching
+                urlParams.set('page', '1');
+                
+                // Redirect with search parameter
+                window.location.href = '/admin/chat_history?' + urlParams.toString();
+            }
+        }
+        
+        // Apply filters
+        applyFiltersBtn.addEventListener('click', function() {
+            const admin = document.getElementById('admin').value;
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            const searchTerm = searchInput.value.trim();
+            
+            let url = '/admin/chat_history?admin=' + admin;
+                
+            if (startDate) {
+                url += '&start_date=' + startDate;
+            }
+            
+            if (endDate) {
+                url += '&end_date=' + endDate;
+            }
+            
+            if (searchTerm) {
+                url += '&search=' + encodeURIComponent(searchTerm);
+            }
+            
+            window.location.href = url;
+        });
+        
+        // Reset filters
+        resetFiltersBtn.addEventListener('click', function() {
+            window.location.href = '/admin/chat_history';
+        });
+        
+        // View history button - open modal
+        const historyModal = document.getElementById('history-modal');
+        const historyContent = document.getElementById('history-content');
+        const closeHistoryModal = document.getElementById('close-history-modal');
+        
+        viewHistoryBtns.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const chatId = this.getAttribute('data-id');
+                
+                // Show modal and loading state
+                historyModal.style.display = 'block';
+                historyContent.innerHTML = '<p>Loading chat history...</p>';
+                
+                // Fetch chat history
+                fetch(`/admin/api/chat_history_for_visitor/${chatId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            let historyHTML = '';
+                            
+                            if (data.chats.length > 0) {
+                                // Sort chats from oldest to newest
+                                const sortedChats = [...data.chats].sort((a, b) => {
+                                    return new Date(a.created_at) - new Date(b.created_at);
+                                });
+                                
+                                sortedChats.forEach(chat => {
+                                    historyHTML += `<div class="chat-history-item mb-4">`;
+                                    
+                                    // Sort messages chronologically (oldest to newest)
+                                    const sortedMessages = [...chat.messages].sort((a, b) => {
+                                        return new Date(a.timestamp) - new Date(b.timestamp);
+                                    });
+                                    
+                                    // Track the current date to know when to insert date dividers
+                                    let currentDate = null;
+                                    
+                                    // Display messages in chronological order (oldest first)
+                                    sortedMessages.forEach(message => {
+                                        // Check if we need to add a date divider
+                                        const messageDate = new Date(message.timestamp);
+                                        const messageDateStr = messageDate.toDateString();
+                                        
+                                        if (currentDate !== messageDateStr) {
+                                            // Format the date nicely
+                                            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                                            const formattedDate = messageDate.toLocaleDateString(undefined, options);
+                                            
+                                            // Add a date divider as system message
+                                            historyHTML += `
+                                                <div class="system-message">
+                                                    <div class="system-message-content">
+                                                        ${formattedDate}
+                                                    </div>
+                                                </div>`;
+                                            
+                                            currentDate = messageDateStr;
+                                        }
+                                        
+                                        // Format the message timestamp
+                                        const timeOptions = { hour: '2-digit', minute: '2-digit' };
+                                        const formattedTime = messageDate.toLocaleTimeString(undefined, timeOptions);
+                                        
+                                        if (message.is_system_message) {
+                                            // System message
+                                            historyHTML += `
+                                                <div class="system-message">
+                                                    <div class="system-message-content">
+                                                        ${message.content}
+                                                        <span class="system-message-time">${formattedTime}</span>
+                                                    </div>
+                                                </div>`;
+                                        } else if (message.is_from_visitor) {
+                                            // Visitor message
+                                            historyHTML += `
+                                                <div class="message-container">
+                                                    <div class="avatar-initials visitor-avatar">
+                                                        ${(chat.visitor_name || 'V').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div class="message message-visitor">
+                                                        <div class="message-sender">
+                                                            ${chat.visitor_name || 'Visitor'}
+                                                        </div>
+                                                        <div class="message-content">
+                                                            ${message.content}
+                                                        </div>
+                                                        <div class="message-meta">
+                                                            <span class="message-time">${formattedTime}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>`;
+                                        } else {
+                                            // Admin or AI message
+                                            if (message.is_ai_generated) {
+                                                // AI message
+                                                historyHTML += `
+                                                    <div class="message-container ai-message">
+                                                        <div class="avatar-initials ai-avatar">
+                                                            AI
+                                                        </div>
+                                                        <div class="message message-ai">
+                                                            <div class="message-sender">
+                                                                AI Assistant
+                                                            </div>
+                                                            <div class="message-content">
+                                                                ${message.content}
+                                                            </div>
+                                                            <div class="message-meta">
+                                                                <span class="message-time">${formattedTime}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>`;
+                                            } else {
+                                                // Admin message
+                                                const avatarHtml = message.admin_profile_image ? 
+                                                    `<div class="profile-avatar">
+                                                        <img src="${message.admin_profile_image}" alt="${message.sender_name || 'Admin'}">
+                                                     </div>` : 
+                                                    `<div class="avatar-initials">
+                                                        ${(message.sender_name || 'A').charAt(0).toUpperCase()}
+                                                     </div>`;
+                                                
+                                                historyHTML += `
+                                                    <div class="message-container admin-message">
+                                                        ${avatarHtml}
+                                                        <div class="message message-admin">
+                                                            <div class="message-sender">
+                                                                ${message.sender_name || 'Admin'}
+                                                            </div>
+                                                            <div class="message-content">
+                                                                ${message.content}
+                                                            </div>
+                                                            <div class="message-meta">
+                                                                <span class="message-time">${formattedTime}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>`;
+                                            }
+                                        }
+                                    });
+                                    
+                                    historyHTML += `</div>`;
+                                });
+                            } else {
+                                historyHTML = '<p>No previous chat history found for this visitor.</p>';
+                            }
+                            
+                            historyContent.innerHTML = historyHTML;
+                            
+                            // Scroll to the bottom of the history content
+                            setTimeout(function() {
+                                historyContent.scrollTop = historyContent.scrollHeight;
+                            }, 100);
+                        } else {
+                            historyContent.innerHTML = '<p>No chat history found for this visitor.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching chat history:', error);
+                        historyContent.innerHTML = '<p class="text-danger small">Failed to load chat history.</p>';
+                    });
+            });
+        });
+        
+        // Close modal
+        closeHistoryModal.addEventListener('click', function() {
+            historyModal.style.display = 'none';
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === historyModal) {
+                historyModal.style.display = 'none';
+            }
+        });
+        
+        // Start chat button - navigate to chat page
+        const startChatBtns = document.querySelectorAll('.start-chat-btn');
+        startChatBtns.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const chatId = this.getAttribute('data-id');
+                window.location.href = `/admin/chat/${chatId}`;
+            });
+        });
+    });
+</script>
+{% endblock %} 

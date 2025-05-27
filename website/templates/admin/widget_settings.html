@@ -1,0 +1,158 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Widget Settings{% endblock %}
+
+{% block header_title %}Chat Widget Settings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Chat Widget Configuration</h3>
+    </div>
+    <div class="card-body">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="row">
+            <div class="col-md-6">
+                <form method="POST" action="{{ url_for('admin.widget_settings') }}" enctype="multipart/form-data">
+                    <div class="form-group mb-3">
+                        <label for="primary_color">Primary Color</label>
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" id="primary_color" name="primary_color" value="{{ primary_color }}" title="Choose your color">
+                            <input type="text" class="form-control" id="primary_color_text" value="{{ primary_color }}" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="company_name">Company Name</label>
+                        <input type="text" class="form-control" id="company_name" name="company_name" value="{{ company_name }}">
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="welcome_message">Welcome Message</label>
+                        <textarea class="form-control" id="welcome_message" name="welcome_message" rows="3">{{ welcome_message }}</textarea>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="widget_position">Widget Position</label>
+                        <select class="form-control" id="widget_position" name="widget_position">
+                            <option value="right" {% if widget_position == 'right' %}selected{% endif %}>Right</option>
+                            <option value="left" {% if widget_position == 'left' %}selected{% endif %}>Left</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="logo_url">Logo URL (optional)</label>
+                        <input type="text" class="form-control" id="logo_url" name="logo_url" value="{{ logo_url }}">
+                        <small class="form-text text-muted">Enter a URL to your logo or upload a file below.</small>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="logo_file">Upload Logo (optional)</label>
+                        <input type="file" class="form-control" id="logo_file" name="logo_file" accept="image/*">
+                    </div>
+                    
+                    {% if logo_url %}
+                    <div class="form-group mb-3">
+                        <label>Current Logo</label>
+                        <div class="logo-preview">
+                            <img src="{{ logo_url }}" alt="Logo" style="max-width: 200px; max-height: 100px;">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </form>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Embed Code</h4>
+                    </div>
+                    <div class="card-body">
+                        <p>Copy and paste this code into your website to embed the chat widget:</p>
+                        <div class="form-group">
+                            <textarea class="form-control" id="embed_code" rows="3" readonly>{{ embed_code }}</textarea>
+                        </div>
+                        <button class="btn btn-secondary mt-2" id="copy_embed_code">Copy Code</button>
+                        
+                        <div class="mt-4">
+                            <h5>Widget Preview</h5>
+                            <div class="widget-preview" style="position: relative; height: 300px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                                <div style="position: absolute; bottom: 20px; {{ widget_position }}: 20px; width: 60px; height: 60px; border-radius: 50%; background-color: {{ primary_color }}; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sync color input with text display
+        const colorInput = document.getElementById('primary_color');
+        const colorText = document.getElementById('primary_color_text');
+        
+        colorInput.addEventListener('input', function() {
+            colorText.value = this.value;
+            updatePreview();
+        });
+        
+        // Copy embed code button
+        const copyButton = document.getElementById('copy_embed_code');
+        const embedCode = document.getElementById('embed_code');
+        
+        copyButton.addEventListener('click', function() {
+            embedCode.select();
+            document.execCommand('copy');
+            
+            // Show copied message
+            const originalText = this.textContent;
+            this.textContent = 'Copied!';
+            this.classList.add('btn-success');
+            this.classList.remove('btn-secondary');
+            
+            setTimeout(() => {
+                this.textContent = originalText;
+                this.classList.add('btn-secondary');
+                this.classList.remove('btn-success');
+            }, 2000);
+        });
+        
+        // Update preview when position changes
+        const positionSelect = document.getElementById('widget_position');
+        positionSelect.addEventListener('change', updatePreview);
+        
+        function updatePreview() {
+            const preview = document.querySelector('.widget-preview > div');
+            const position = positionSelect.value;
+            const color = colorInput.value;
+            
+            // Reset positions
+            preview.style.left = 'auto';
+            preview.style.right = 'auto';
+            
+            // Set new position
+            preview.style[position] = '20px';
+            
+            // Update color
+            preview.style.backgroundColor = color;
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,1180 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block header_title %}Dashboard{% endblock %}
+
+{% block additional_css %}
+<style>
+    .unread-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #e74c3c;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+        margin-right: 8px;
+        font-weight: bold;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .badge.human {
+        background-color: #e6eef5;
+        color: #0F4173;
+    }
+
+    .badge.ai {
+        background-color: #e1f5fe;
+        color: #00bcd4;
+    }
+
+    .flex-actions {
+        display: flex;
+        align-items: center;
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .recent-grid .projects {
+        margin-bottom: 2rem;
+        width: 100% !important;
+    }
+
+    .recent-grid {
+        width: 100%;
+        margin-right: 0;
+    }
+
+    /* Make sure the main content stretches full width */
+    main {
+        padding: 2rem 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Fix card layout */
+    .cards {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        width: 100%;
+    }
+
+    /* Fix table width */
+    .table-responsive table {
+        width: 100%;
+    }
+
+    /* Fix modal width */
+    #online-admins-modal .modal-content {
+        width: 90%;
+        max-width: 600px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cards">
+    <div class="card-single">
+        <div>
+            <h1 id="active-visitors-count">{{ active_visitors_count }}</h1>
+            <span>Active Visitors</span>
+        </div>
+        <div>
+            <span class="las la-users"></span>
+        </div>
+    </div>
+
+    <div class="card-single">
+        <div>
+            <h1 id="active-chats-count">{{ active_rooms|length }}</h1>
+            <span>Active Chats</span>
+        </div>
+        <div>
+            <span class="las la-comments"></span>
+        </div>
+    </div>
+
+    <div class="card-single">
+        <div>
+            <h1 id="total-admins-count">{{ total_admins }}</h1>
+            <span>Total Admins</span>
+        </div>
+        <div>
+            <span class="las la-user-shield"></span>
+        </div>
+    </div>
+
+    <div class="card-single">
+        <div>
+            <h1 id="online-status">{{ online_status }}</h1>
+            <span>Your Status</span>
+        </div>
+        <div>
+            <button id="toggle-status-btn" class="toggle-status" style="background: none; border: none; cursor: pointer;">
+                <span class="las {{ 'la-toggle-on text-success' if current_user.is_online else 'la-toggle-off text-muted' }}" style="font-size: 24px;"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- New card for online admins -->
+<div class="recent-grid">
+    <div class="projects" style="width: 100%;">
+        <div class="card">
+            <div class="card-header">
+                <h3>Online Admins</h3>
+                <div class="flex-actions">
+                    <span id="online-admins-count" class="badge human">0 online</span>
+                    <button id="view-online-admins-btn" class="btn-action" style="margin-left: 10px; background-color: #0F4173; color: white;">
+                        <span class="las la-list"></span> View List
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="online-admins-list" class="p-3">
+                    <p>Loading online admins...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Online Admins Modal -->
+<div id="online-admins-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <h3 style="margin: 0;">Online Admins</h3>
+            <span class="close-modal" id="close-online-admins-modal" style="cursor: pointer; font-size: 24px;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="online-admins-modal-list" style="max-height: 400px; overflow-y: auto;">
+                <!-- Online admins list will be inserted here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="recent-grid">
+    <div class="projects" style="width: 100%;">
+        <div class="card">
+            <div class="card-header">
+                <h3>Active Chats</h3>
+                <a href="{{ url_for('admin.dashboard') }}">
+                    <button>Refresh <span class="las la-sync"></span></button>
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table width="100%">
+                        <thead>
+                            <tr>
+                                <td>Visitor</td>
+                                <td>Email</td>
+                                <td>IP Address</td>
+                                <td>Visit Count</td>
+                                <td>Status</td>
+                                <td>Actions</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for room_data in rooms %}
+                            <tr data-room-id="{{ room_data.room.id }}" data-visitor-id="{{ room_data.room.visitor_id }}">
+                                <td>
+                                    {% if room_data.unread_count > 0 %}
+                                    <span class="unread-badge">{{ room_data.unread_count }}</span>
+                                    {% endif %}
+                                    {{ room_data.visitor_name if room_data.visitor_name else 'Not Provided' }}
+                                </td>
+                                <td>{{ room_data.visitor_email if room_data.visitor_email else 'Not Provided' }}</td>
+                                <td>{{ room_data.room.visitor_ip if room_data.room.visitor_ip else 'Not Provided' }}</td>
+                                <td>{{ room_data.room.visit_count if room_data.room.visit_count else '1' }}</td>
+                                <td>
+                                    {% if room_data.room.has_admin %}
+                                        <span class="status online"></span>
+                                        Has Admin
+                                    {% else %}
+                                        <span class="status offline"></span>
+                                        Waiting for Admin
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.chat', room_id=room_data.room.id) }}" class="btn-action">
+                                        <span class="las la-comment"></span> Chat
+                                    </a>
+                                    <button class="btn-action preview-chat" data-room-id="{{ room_data.room.id }}">
+                                        <span class="las la-eye"></span> Preview
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center">No active chats at the moment.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+            </div>
+
+<!-- Add notification sound element -->
+<audio id="notification-sound" src="{{ url_for('static', filename='sounds/notification.mp3') }}" preload="auto"></audio>
+
+<!-- Chat Preview Modal -->
+<div id="chat-preview-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 800px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <h3 id="preview-visitor-name" style="margin: 0;">Chat Preview</h3>
+            <span class="close-modal" style="cursor: pointer; font-size: 24px;">&times;</span>
+                        </div>
+        <div class="modal-body">
+            <div id="chat-history-tabs" style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <!-- Chat history tabs will be inserted here -->
+            </div>
+            <div id="preview-messages" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px; padding: 10px; border: 1px solid #eee; border-radius: 5px;"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="close-preview" class="btn-action" style="background-color: #f1f1f1; color: #333;">Close</button>
+                <button id="join-chat" class="btn-action" style="background-color: #0F4173; color: white;">Join Chat</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Connect to Socket.IO with reconnection settings
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
+
+        // Track connection status
+        let isConnected = false;
+
+        // Function to request notification permission
+        function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                console.log("This browser does not support desktop notification");
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
+        // Request notification permission when page loads
+        requestNotificationPermission();
+
+        // Function to show browser notification
+        function showNotification(title, message) {
+            // Only show notification if the page is not visible (minimized/background)
+            if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
+                const notification = new Notification(title, {
+                    body: message,
+                    icon: "{{ url_for('static', filename='images/chat-icon.png') }}"
+                });
+
+                // Focus on window when notification is clicked
+                notification.onclick = function() {
+                    window.focus();
+                    notification.close();
+                };
+            }
+        }
+
+        // Function to update dashboard stats
+        function updateDashboardStats() {
+            fetch('/admin/api/dashboard_stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update counts
+                        document.getElementById('active-visitors-count').textContent = data.active_visitors_count;
+                        document.getElementById('active-chats-count').textContent = data.active_chats_count;
+                        document.getElementById('total-admins-count').textContent = data.total_admins;
+
+                        // Update online status
+                        const onlineStatus = document.getElementById('online-status');
+                        onlineStatus.textContent = data.current_user_online ? 'Online' : 'Offline';
+
+                        // Update status toggle button
+                        const toggleBtn = document.querySelector('.toggle-status .las');
+                        if (data.current_user_online) {
+                            toggleBtn.className = 'las la-toggle-on text-success';
+                        } else {
+                            toggleBtn.className = 'las la-toggle-off text-muted';
+                        }
+
+                        // Update online admins
+                        updateOnlineAdmins(data.online_admins);
+
+                        // Also update the modal list if it's open
+                        updateOnlineAdminsModal(data.online_admins);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating dashboard stats:', error);
+                });
+        }
+
+        // Function to update online admins display
+        function updateOnlineAdmins(onlineAdmins) {
+            const onlineAdminsList = document.getElementById('online-admins-list');
+            const onlineAdminsCount = document.getElementById('online-admins-count');
+
+            // Update count badge
+            onlineAdminsCount.textContent = `${onlineAdmins.length} online`;
+
+            // Clear current list
+            onlineAdminsList.innerHTML = '';
+
+            if (onlineAdmins.length === 0) {
+                onlineAdminsList.innerHTML = '<p>No admins are currently online</p>';
+                return;
+            }
+
+            // Show only a summary in the dashboard card
+            const adminSummary = document.createElement('div');
+            adminSummary.className = 'admin-summary';
+            adminSummary.style.display = 'flex';
+            adminSummary.style.flexWrap = 'wrap';
+            adminSummary.style.gap = '10px';
+
+            // Show up to 3 admins with their avatars
+            const maxAdminsToShow = Math.min(3, onlineAdmins.length);
+            for (let i = 0; i < maxAdminsToShow; i++) {
+                const admin = onlineAdmins[i];
+                const adminBadge = document.createElement('div');
+                adminBadge.className = 'admin-badge';
+                adminBadge.style.display = 'flex';
+                adminBadge.style.alignItems = 'center';
+                adminBadge.style.backgroundColor = '#f0f7ff';
+                adminBadge.style.padding = '5px 10px';
+                adminBadge.style.borderRadius = '20px';
+
+                // Admin avatar/initials
+                if (admin.profile_image) {
+                    adminBadge.innerHTML = `
+                        <div style="width: 30px; height: 30px; border-radius: 50%; overflow: hidden; margin-right: 8px;">
+                            <img src="${admin.profile_image}" alt="${admin.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <span style="font-weight: 500;">${admin.name}</span>
+                    `;
+                } else {
+                    adminBadge.innerHTML = `
+                        <div style="width: 30px; height: 30px; border-radius: 50%; background-color: #0F4173; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 8px;">
+                            ${admin.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span style="font-weight: 500;">${admin.name}</span>
+                    `;
+                }
+
+                adminSummary.appendChild(adminBadge);
+            }
+
+            // If there are more admins than shown, add a +X more badge
+            if (onlineAdmins.length > maxAdminsToShow) {
+                const moreBadge = document.createElement('div');
+                moreBadge.className = 'more-badge';
+                moreBadge.style.backgroundColor = '#e6eef5';
+                moreBadge.style.color = '#0F4173';
+                moreBadge.style.padding = '5px 10px';
+                moreBadge.style.borderRadius = '20px';
+                moreBadge.style.fontWeight = '500';
+                moreBadge.textContent = `+${onlineAdmins.length - maxAdminsToShow} more`;
+                adminSummary.appendChild(moreBadge);
+            }
+
+            onlineAdminsList.appendChild(adminSummary);
+        }
+
+        // Function to update the online admins modal
+        function updateOnlineAdminsModal(onlineAdmins) {
+            const modalList = document.getElementById('online-admins-modal-list');
+            if (!modalList) return;
+
+            // Clear current list
+            modalList.innerHTML = '';
+
+            if (onlineAdmins.length === 0) {
+                modalList.innerHTML = '<p style="text-align: center; padding: 20px;">No admins are currently online</p>';
+                return;
+            }
+
+            // Create list of online admins
+            const adminList = document.createElement('div');
+            adminList.className = 'admin-list';
+
+            onlineAdmins.forEach(admin => {
+                const adminItem = document.createElement('div');
+                adminItem.className = 'admin-item';
+                adminItem.style.display = 'flex';
+                adminItem.style.alignItems = 'center';
+                adminItem.style.padding = '12px';
+                adminItem.style.borderBottom = '1px solid #eee';
+
+                // Admin avatar/initials
+                if (admin.profile_image) {
+                    adminItem.innerHTML = `
+                        <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; margin-right: 12px;">
+                            <img src="${admin.profile_image}" alt="${admin.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: 500; font-size: 16px;">${admin.name}</div>
+                            <div style="font-size: 12px; color: #28a745; display: flex; align-items: center;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #28a745; margin-right: 5px;"></span>
+                                Online
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    adminItem.innerHTML = `
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background-color: #0F4173; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px;">
+                            ${admin.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: 500; font-size: 16px;">${admin.name}</div>
+                            <div style="font-size: 12px; color: #28a745; display: flex; align-items: center;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #28a745; margin-right: 5px;"></span>
+                                Online
+                            </div>
+                        </div>
+                    `;
+                }
+
+                adminList.appendChild(adminItem);
+            });
+
+            modalList.appendChild(adminList);
+        }
+
+        // Function to check admin presence for all active rooms
+        function checkAdminPresence() {
+            const roomRows = document.querySelectorAll('tr[data-room-id]');
+
+            roomRows.forEach(row => {
+                const roomId = row.getAttribute('data-room-id');
+
+                // Skip if no room ID
+                if (!roomId) return;
+
+                // Check admin presence for this room
+                fetch(`/admin/api/check_admin_presence/${roomId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update the status cell
+                            const statusCell = row.querySelector('td:nth-child(5)');
+                            if (statusCell) {
+                                if (data.has_admin) {
+                                    statusCell.innerHTML = '<span class="status online"></span> Has Admin';
+                                } else {
+                                    statusCell.innerHTML = '<span class="status offline"></span> Waiting for Admin';
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking admin presence:', error);
+                    });
+            });
+        }
+
+        // Check admin presence periodically (every 10 seconds)
+        setInterval(checkAdminPresence, 10000);
+
+        // Also check admin presence on page load
+        setTimeout(checkAdminPresence, 1000);
+
+        // Update dashboard stats periodically (every 5 seconds)
+        setInterval(updateDashboardStats, 5000);
+
+        // Also update stats on page load
+        setTimeout(updateDashboardStats, 1000);
+
+        // Socket connection events
+        socket.on('connect', function() {
+            console.log('Connected to WebSocket server');
+            isConnected = true;
+
+            // Update stats immediately upon connection
+            updateDashboardStats();
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from WebSocket server');
+            isConnected = false;
+        });
+
+        socket.on('reconnect', function(attemptNumber) {
+            console.log('Reconnected to WebSocket server after ' + attemptNumber + ' attempts');
+            isConnected = true;
+
+            // Update stats after reconnection
+            updateDashboardStats();
+        });
+
+        // Handle admin status changed event
+        socket.on('admin_status_changed', function(data) {
+            console.log('Admin status changed:', data);
+
+            // Update dashboard stats
+            updateDashboardStats();
+        });
+
+        // Handle visitor connected event (new real-time connection)
+        socket.on('visitor_connected', function(data) {
+            console.log('Visitor connected:', data);
+
+            // Only handle human mode chats
+            if (data.chat_mode !== 'human') return;
+
+            // Check if this visitor is already in the table
+            const existingRow = document.querySelector(`tr[data-room-id="${data.room_id}"]`);
+
+            if (existingRow) {
+                // Update the status to show connected
+                const statusCell = existingRow.querySelector('td:nth-child(5)');
+                if (statusCell) {
+                    const statusIndicator = statusCell.querySelector('.status');
+                    if (statusIndicator) {
+                        statusIndicator.className = 'status online';
+                    }
+                }
+            } else {
+                // Add new row for this visitor
+                const tableBody = document.querySelector('.table-responsive tbody');
+                if (tableBody) {
+                    // Create new row
+                    const newRow = document.createElement('tr');
+                    newRow.setAttribute('data-room-id', data.room_id);
+                    newRow.setAttribute('data-visitor-id', data.visitor_id);
+
+                    // Create visitor name cell
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = data.visitor_name || 'Not Provided';
+                    newRow.appendChild(nameCell);
+
+                    // Create email cell
+                    const emailCell = document.createElement('td');
+                    emailCell.textContent = data.visitor_email || 'Not Provided';
+                    newRow.appendChild(emailCell);
+
+                    // Create IP address cell
+                    const ipCell = document.createElement('td');
+                    ipCell.textContent = data.visitor_ip || 'Not Provided';
+                    newRow.appendChild(ipCell);
+
+                    // Create visit count cell - default to 1
+                    const visitCountCell = document.createElement('td');
+                    visitCountCell.textContent = '1';
+                    newRow.appendChild(visitCountCell);
+
+                    // Create status cell
+                    const statusCell = document.createElement('td');
+                    statusCell.innerHTML = '<span class="status offline"></span> Waiting for Admin';
+                    newRow.appendChild(statusCell);
+
+                    // Create actions cell
+                    const actionsCell = document.createElement('td');
+                    actionsCell.innerHTML = `
+                        <a href="/admin/chat/${data.room_id}" class="btn-action">
+                            <span class="las la-comment"></span> Chat
+                        </a>
+                        <button class="btn-action preview-chat" data-room-id="${data.room_id}">
+                            <span class="las la-eye"></span> Preview
+                        </button>
+                    `;
+                    newRow.appendChild(actionsCell);
+
+                    // Add the new row to the table
+                    const noChatsRow = tableBody.querySelector('tr td[colspan="6"]');
+                    if (noChatsRow) {
+                        // Remove the "No active chats" row
+                        noChatsRow.parentElement.remove();
+                    }
+
+                    tableBody.appendChild(newRow);
+
+                    // Add event listener to the new preview button
+                    const previewButton = actionsCell.querySelector('.preview-chat');
+                    if (previewButton) {
+                        previewButton.addEventListener('click', function() {
+                            const roomId = this.getAttribute('data-room-id');
+                            currentPreviewRoomId = roomId;
+
+                            // Get visitor name
+                            let visitorName = data.visitor_name || 'Visitor';
+
+                            previewVisitorName.textContent = `Chat with ${visitorName}`;
+
+                            // Fetch chat messages
+                            fetch(`/admin/api/chat_preview/${roomId}`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        // Clear previous content
+                                        document.getElementById('chat-history-tabs').innerHTML = '';
+                                        document.getElementById('preview-messages').innerHTML = '';
+
+                                        // Create tabs for each chat session
+                                        const chatHistoryTabs = document.getElementById('chat-history-tabs');
+
+                                        if (data.chats.length > 1) {
+                                            // Create tabs for multiple chat sessions
+                                            data.chats.forEach((chat, index) => {
+                                                const tab = document.createElement('button');
+                                                tab.className = 'chat-tab';
+                                                tab.dataset.roomId = chat.room_id;
+                                                tab.style.padding = '8px 15px';
+                                                tab.style.margin = '0 5px 5px 0';
+                                                tab.style.border = 'none';
+                                                tab.style.borderRadius = '4px';
+                                                tab.style.cursor = 'pointer';
+
+                                                if (chat.is_current_chat) {
+                                                    tab.style.backgroundColor = '#0F4173';
+                                                    tab.style.color = 'white';
+                                                } else {
+                                                    tab.style.backgroundColor = '#f1f1f1';
+                                                    tab.style.color = '#333';
+                                                }
+
+                                                const date = new Date(chat.created_at);
+                                                tab.textContent = `Chat ${index + 1} (${date.toLocaleDateString()})`;
+
+                                                tab.addEventListener('click', function() {
+                                                    // Update active tab styling
+                                                    document.querySelectorAll('.chat-tab').forEach(t => {
+                                                        t.style.backgroundColor = '#f1f1f1';
+                                                        t.style.color = '#333';
+                                                    });
+                                                    this.style.backgroundColor = '#0F4173';
+                                                    this.style.color = 'white';
+
+                                                    // Show messages for this chat
+                                                    showChatMessages(data, this.dataset.roomId);
+
+                                                    // Update the current preview room ID
+                                                    currentPreviewRoomId = this.dataset.roomId;
+                                                });
+
+                                                chatHistoryTabs.appendChild(tab);
+                                            });
+                                        } else {
+                                            // If only one chat, add a simple header
+                                            const header = document.createElement('div');
+                                            header.textContent = 'Current Chat';
+                                            header.style.fontWeight = 'bold';
+                                            header.style.padding = '8px 0';
+                                            chatHistoryTabs.appendChild(header);
+                                        }
+
+                                        // Show messages for the current chat by default
+                                        showChatMessages(data, currentPreviewRoomId);
+
+                                        // Show modal
+                                        previewModal.style.display = 'block';
+
+                                        // Ensure the messages container scrolls to the bottom to show most recent messages
+                                        setTimeout(() => {
+                                            const previewMessages = document.getElementById('preview-messages');
+                                            previewMessages.scrollTop = previewMessages.scrollHeight;
+                                        }, 100); // Small delay to ensure content is rendered
+                                    } else {
+                                        alert('Failed to load chat preview: ' + data.error);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                    alert('An error occurred while loading the chat preview.');
+                                });
+                        });
+                    }
+
+                    // Play notification sound
+                    const notificationSound = document.getElementById('notification-sound');
+                    if (notificationSound) {
+                        notificationSound.play().catch(e => console.log('Sound playback failed:', e));
+                    }
+
+                    // Show browser notification
+                    showNotification('New Chat Request', `${data.visitor_name || 'A visitor'} is waiting for assistance`);
+                }
+            }
+        });
+
+        // Handle visitor disconnected event
+        socket.on('visitor_disconnected', function(data) {
+            console.log('Visitor disconnected:', data);
+
+            // Find the row for this visitor
+            const visitorRow = document.querySelector(`tr[data-room-id="${data.room_id}"]`);
+            if (visitorRow) {
+                // Remove the row
+                visitorRow.remove();
+
+                // Check if table is now empty
+                const tableBody = document.querySelector('.table-responsive tbody');
+                if (tableBody && tableBody.children.length === 0) {
+                    // Add the "No active chats" row
+                    const noChatsRow = document.createElement('tr');
+                    noChatsRow.innerHTML = '<td colspan="6" class="text-center">No active chats at the moment.</td>';
+                    tableBody.appendChild(noChatsRow);
+                }
+            }
+        });
+
+        // Handle admin joined event
+        socket.on('admin_joined_chat', function(data) {
+            console.log('Admin joined chat:', data);
+
+            // Find the row for this room
+            const roomRow = document.querySelector(`tr[data-room-id="${data.room_id}"]`);
+            if (roomRow) {
+                // Update the status cell
+                const statusCell = roomRow.querySelector('td:nth-child(5)');
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="status online"></span> Has Admin';
+                }
+            }
+        });
+
+        // Handle admin left event
+        socket.on('admin_left_chat', function(data) {
+            console.log('Admin left chat:', data);
+
+            // Find the row for this room
+            const roomRow = document.querySelector(`tr[data-room-id="${data.room_id}"]`);
+            if (roomRow) {
+                // Update the status cell immediately
+                const statusCell = roomRow.querySelector('td:nth-child(5)');
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="status offline"></span> Waiting for Admin';
+                }
+            }
+        });
+
+        socket.on('new_message_notification', function(data) {
+            // Only update unread count for visitor messages, not system messages
+            if (data.is_system_message) {
+                return; // Skip system messages
+            }
+
+            // Update the unread message count in the UI
+            const roomRow = document.querySelector(`tr[data-room-id="${data.room_id}"]`);
+            if (roomRow) {
+                const visitorCell = roomRow.querySelector('td:first-child');
+                if (visitorCell) {
+                    // Check if there's already an unread badge
+                    let unreadBadge = visitorCell.querySelector('.unread-badge');
+                    if (unreadBadge) {
+                        // Update the count
+                        const currentCount = parseInt(unreadBadge.textContent) || 0;
+                        unreadBadge.textContent = currentCount + 1;
+                    } else {
+                        // Create a new badge
+                        unreadBadge = document.createElement('span');
+                        unreadBadge.className = 'unread-badge';
+                        unreadBadge.textContent = '1';
+
+                        // Insert at the beginning of the cell
+                        if (visitorCell.firstChild) {
+                            visitorCell.insertBefore(unreadBadge, visitorCell.firstChild);
+                        } else {
+                            visitorCell.appendChild(unreadBadge);
+                        }
+                    }
+                }
+            }
+
+            // Play notification sound ONLY for visitor messages (not admin messages)
+            // AND only if the page is not visible (admin is not actively viewing dashboard)
+            if (data.is_from_visitor && document.visibilityState !== 'visible') {
+                const notificationSound = document.getElementById('notification-sound');
+                if (notificationSound) {
+                    // Create a clone of the audio element to allow overlapping sounds
+                    const soundClone = notificationSound.cloneNode(true);
+                    soundClone.play().catch(error => {
+                        console.log('Could not play notification sound:', error);
+                        // Fallback to original element if cloning fails
+                        notificationSound.play().catch(e => console.log('Sound playback failed:', e));
+                    });
+                }
+
+                // Show browser notification ONLY for visitor messages
+                if (Notification.permission === "granted") {
+                    const visitorName = data.visitor_name || 'Visitor';
+                    const messagePreview = data.message ?
+                        (data.message.length > 50 ? data.message.substring(0, 50) + '...' : data.message) :
+                        'New message';
+
+                    const notification = new Notification(`New Message from ${visitorName}`, {
+                        body: messagePreview,
+                        icon: "{{ url_for('static', filename='images/chat-icon.png') }}",
+                        tag: `chat-${data.room_id}-${Date.now()}` // Unique tag to prevent grouping
+                    });
+
+                    notification.onclick = function() {
+                        // Open the chat window when notification is clicked
+                        window.focus();
+                        window.location.href = `/admin/chat/${data.room_id}`;
+                        this.close();
+                    };
+                }
+            }
+        });
+
+        // Close chat functionality
+        const closeButtons = document.querySelectorAll('.close-chat');
+        closeButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                const roomId = this.getAttribute('data-room-id');
+                if (confirm('Are you sure you want to close this chat?')) {
+                    fetch(`/admin/api/close_chat/${roomId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Failed to close chat: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while closing the chat.');
+                    });
+                }
+            });
+        });
+
+        // Chat preview functionality
+        const previewButtons = document.querySelectorAll('.preview-chat');
+        const previewModal = document.getElementById('chat-preview-modal');
+        const closePreviewBtn = document.querySelector('.close-modal');
+        const closePreviewButton = document.getElementById('close-preview');
+        const joinChatButton = document.getElementById('join-chat');
+        const previewMessages = document.getElementById('preview-messages');
+        const previewVisitorName = document.getElementById('preview-visitor-name');
+        let currentPreviewRoomId = null;
+
+        // Close modal functions
+        function closePreviewModal() {
+            previewModal.style.display = 'none';
+            currentPreviewRoomId = null;
+        }
+
+        closePreviewBtn.addEventListener('click', closePreviewModal);
+        closePreviewButton.addEventListener('click', closePreviewModal);
+
+        // Join chat button
+        joinChatButton.addEventListener('click', function() {
+            if (currentPreviewRoomId) {
+                window.location.href = `/admin/chat/${currentPreviewRoomId}`;
+            }
+        });
+
+        // When the user clicks anywhere outside of the modal, close it
+        window.addEventListener('click', function(event) {
+            if (event.target == previewModal) {
+                closePreviewModal();
+            }
+        });
+
+        // Function to show messages for a specific chat
+        function showChatMessages(data, roomId) {
+            const previewMessages = document.getElementById('preview-messages');
+            previewMessages.innerHTML = '';
+
+            // Find the chat data for the selected room
+            const selectedChat = data.chats.find(chat => chat.room_id === roomId);
+            if (!selectedChat) return;
+
+            // Get visitor name
+            const visitorName = data.visitor_name || 'Visitor';
+
+            // Add messages to preview
+            selectedChat.messages.forEach(message => {
+                const messageElement = document.createElement('div');
+                messageElement.className = message.is_from_visitor ? 'visitor-message' : 'admin-message';
+                messageElement.style.padding = '8px';
+                messageElement.style.margin = '8px 0';
+                messageElement.style.borderRadius = '8px';
+                messageElement.style.maxWidth = '80%';
+                messageElement.style.position = 'relative';
+                messageElement.style.clear = 'both';
+
+                if (message.is_from_visitor) {
+                    messageElement.style.backgroundColor = '#e6eef5';
+                    messageElement.style.float = 'left';
+                    messageElement.style.borderBottomLeftRadius = '0';
+                } else {
+                    messageElement.style.backgroundColor = '#f1f1f1';
+                    messageElement.style.float = 'right';
+                    messageElement.style.borderBottomRightRadius = '0';
+                }
+
+                const sender = document.createElement('div');
+                sender.style.fontWeight = 'bold';
+                sender.style.marginBottom = '4px';
+                sender.style.fontSize = '14px';
+
+                if (message.is_from_visitor) {
+                    sender.textContent = visitorName;
+                } else if (message.is_ai_generated) {
+                    sender.textContent = 'AI Assistant';
+                } else {
+                    sender.textContent = message.sender_name || 'Admin';
+                }
+
+                const content = document.createElement('div');
+                content.style.wordBreak = 'break-word';
+                content.innerHTML = message.content;
+
+                const time = document.createElement('div');
+                time.style.fontSize = '10px';
+                time.style.textAlign = 'right';
+                time.style.marginTop = '4px';
+                time.style.opacity = '0.7';
+                const messageDate = new Date(message.timestamp);
+                time.textContent = messageDate.toLocaleTimeString() + ' ' + messageDate.toLocaleDateString();
+
+                messageElement.appendChild(sender);
+                messageElement.appendChild(content);
+                messageElement.appendChild(time);
+
+                previewMessages.appendChild(messageElement);
+            });
+
+            // Add a clearfix div to handle floating elements
+            const clearfix = document.createElement('div');
+            clearfix.style.clear = 'both';
+            previewMessages.appendChild(clearfix);
+
+            // Scroll to bottom of messages
+            previewMessages.scrollTop = previewMessages.scrollHeight;
+        }
+
+        // Preview chat functionality for initial buttons
+        previewButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                const roomId = this.getAttribute('data-room-id');
+                currentPreviewRoomId = roomId;
+
+                // Get visitor name
+                const row = document.querySelector(`tr[data-room-id="${roomId}"]`);
+                let visitorName = 'Visitor';
+                if (row) {
+                    const nameCell = row.querySelector('td:first-child');
+                    if (nameCell) {
+                        // Remove the unread badge if present
+                        const badge = nameCell.querySelector('.unread-badge');
+                        visitorName = nameCell.textContent.trim();
+                        if (badge) {
+                            visitorName = visitorName.replace(badge.textContent, '').trim();
+                        }
+                    }
+                }
+
+                previewVisitorName.textContent = `Chat with ${visitorName}`;
+
+                // Fetch chat messages
+                fetch(`/admin/api/chat_preview/${roomId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Clear previous content
+                            document.getElementById('chat-history-tabs').innerHTML = '';
+                            document.getElementById('preview-messages').innerHTML = '';
+
+                            // Create tabs for each chat session
+                            const chatHistoryTabs = document.getElementById('chat-history-tabs');
+
+                            if (data.chats.length > 1) {
+                                // Create tabs for multiple chat sessions
+                                data.chats.forEach((chat, index) => {
+                                    const tab = document.createElement('button');
+                                    tab.className = 'chat-tab';
+                                    tab.dataset.roomId = chat.room_id;
+                                    tab.style.padding = '8px 15px';
+                                    tab.style.margin = '0 5px 5px 0';
+                                    tab.style.border = 'none';
+                                    tab.style.borderRadius = '4px';
+                                    tab.style.cursor = 'pointer';
+
+                                    if (chat.is_current_chat) {
+                                        tab.style.backgroundColor = '#0F4173';
+                                        tab.style.color = 'white';
+                                    } else {
+                                        tab.style.backgroundColor = '#f1f1f1';
+                                        tab.style.color = '#333';
+                                    }
+
+                                    const date = new Date(chat.created_at);
+                                    tab.textContent = `Chat ${index + 1} (${date.toLocaleDateString()})`;
+
+                                    tab.addEventListener('click', function() {
+                                        // Update active tab styling
+                                        document.querySelectorAll('.chat-tab').forEach(t => {
+                                            t.style.backgroundColor = '#f1f1f1';
+                                            t.style.color = '#333';
+                                        });
+                                        this.style.backgroundColor = '#0F4173';
+                                        this.style.color = 'white';
+
+                                        // Show messages for this chat
+                                        showChatMessages(data, this.dataset.roomId);
+
+                                        // Update the current preview room ID
+                                        currentPreviewRoomId = this.dataset.roomId;
+                                    });
+
+                                    chatHistoryTabs.appendChild(tab);
+                                });
+                            } else {
+                                // If only one chat, add a simple header
+                                const header = document.createElement('div');
+                                header.textContent = 'Current Chat';
+                                header.style.fontWeight = 'bold';
+                                header.style.padding = '8px 0';
+                                chatHistoryTabs.appendChild(header);
+                            }
+
+                            // Show messages for the current chat by default
+                            showChatMessages(data, currentPreviewRoomId);
+
+                            // Show modal
+                            previewModal.style.display = 'block';
+
+                            // Ensure the messages container scrolls to the bottom to show most recent messages
+                            setTimeout(() => {
+                                const previewMessages = document.getElementById('preview-messages');
+                                previewMessages.scrollTop = previewMessages.scrollHeight;
+                            }, 100); // Small delay to ensure content is rendered
+                        } else {
+                            alert('Failed to load chat preview: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while loading the chat preview.');
+                    });
+            });
+        });
+
+        // Toggle online status
+        const statusToggle = document.getElementById('toggle-status-btn');
+        if (statusToggle) {
+            statusToggle.addEventListener('click', function() {
+                // Get current status
+                const currentStatus = document.getElementById('online-status').textContent;
+                const newStatus = currentStatus === 'Online' ? false : true;
+
+                // Disable the toggle button to prevent multiple clicks
+                this.disabled = true;
+
+                fetch('/admin/api/toggle_online_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ is_online: newStatus })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI immediately without page reload
+                        document.getElementById('online-status').textContent = data.is_online ? 'Online' : 'Offline';
+
+                        // Update toggle button
+                        const toggleBtn = document.querySelector('.toggle-status .las');
+                        if (data.is_online) {
+                            toggleBtn.className = 'las la-toggle-on text-success';
+                        } else {
+                            toggleBtn.className = 'las la-toggle-off text-muted';
+                        }
+
+                        // Success - no error message needed
+                    } else {
+                        console.error('Error toggling status:', data.error || 'Unknown error');
+                        // Only show alert if there's an actual error and data.error exists
+                        if (data.error) {
+                            alert('Failed to toggle status: ' + data.error);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while toggling status.');
+                })
+                .finally(() => {
+                    // Re-enable the button
+                    this.disabled = false;
+                });
+            });
+        }
+
+        // Online Admins Modal functionality
+        const onlineAdminsModal = document.getElementById('online-admins-modal');
+        const viewOnlineAdminsBtn = document.getElementById('view-online-admins-btn');
+        const closeOnlineAdminsModal = document.getElementById('close-online-admins-modal');
+
+        // Open modal
+        if (viewOnlineAdminsBtn) {
+            viewOnlineAdminsBtn.addEventListener('click', function() {
+                // Update the modal with the latest data
+                fetch('/admin/api/dashboard_stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateOnlineAdminsModal(data.online_admins);
+                            onlineAdminsModal.style.display = 'block';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching online admins:', error);
+                    });
+            });
+        }
+
+        // Close modal with X button
+        if (closeOnlineAdminsModal) {
+            closeOnlineAdminsModal.addEventListener('click', function() {
+                onlineAdminsModal.style.display = 'none';
+            });
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === onlineAdminsModal) {
+                onlineAdminsModal.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

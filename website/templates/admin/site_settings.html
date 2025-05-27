@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Site Settings{% endblock %}
+
+{% block header_title %}Site Settings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>General Settings</h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('admin.site_settings_page') }}">
+            <div class="form-group">
+                <label for="company_name">Company Name</label>
+                <input type="text" id="company_name" name="company_name" class="form-control" value="{{ settings.company_name }}">
+                <small class="form-text text-muted">This will be displayed in various places throughout the chat app.</small>
+            </div>
+            
+            <div class="form-group mt-4">
+                <label for="timezone">Default Timezone</label>
+                <select name="timezone" id="timezone" class="form-control">
+                    {% for tz in timezones %}
+                    <option value="{{ tz }}" {% if settings.timezone == tz %}selected{% endif %}>{{ tz }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">Used for calculating business hours and displaying timestamps.</small>
+            </div>
+            
+            <div class="form-group mt-4">
+                <label>Time Format</label>
+                <div class="d-flex">
+                    <div class="form-check mr-4">
+                        <input class="form-check-input" type="radio" name="time_format" id="format-24h" value="24h" {% if settings.time_format == '24h' %}checked{% endif %}>
+                        <label class="form-check-label" for="format-24h">24-hour (14:30)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="time_format" id="format-12h" value="12h" {% if settings.time_format == '12h' %}checked{% endif %}>
+                        <label class="form-check-label" for="format-12h">12-hour (2:30 PM)</label>
+                    </div>
+                </div>
+                <small class="form-text text-muted">Choose how time is displayed throughout the site</small>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>Message Templates</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="welcome_message">Welcome Message</label>
+                        <textarea name="welcome_message" id="welcome_message" class="form-control" rows="3">{{ settings.welcome_message }}</textarea>
+                        <small class="form-text text-muted">Shown to visitors when they first start a chat.</small>
+                    </div>
+                    
+                    <div class="form-group mt-3">
+                        <label for="ai_welcome_message">AI Welcome Message</label>
+                        <textarea name="ai_welcome_message" id="ai_welcome_message" class="form-control" rows="3">{{ settings.ai_welcome_message }}</textarea>
+                        <small class="form-text text-muted">First message sent by the AI when a visitor switches to AI mode.</small>
+                    </div>
+                    
+                    <div class="form-group mt-3">
+                        <label for="away_message">Away Message</label>
+                        <textarea name="away_message" id="away_message" class="form-control" rows="3">{{ settings.away_message }}</textarea>
+                        <small class="form-text text-muted">Shown when visitors try to chat outside of business hours.</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions mt-4">
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // No color input handling needed anymore
+    });
+</script>
+{% endblock %} 

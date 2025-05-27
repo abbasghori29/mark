@@ -1,0 +1,2629 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Live Chat{% endblock %}
+
+{% block header_title %}{% endblock %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/chat.css') }}">
+<style>
+    :root {
+        --admin-color: #0F4173;
+        --admin-light: #e6eef5;
+        --visitor-color: #6c757d;
+        --visitor-light: #f2f5f7;
+        --ai-color: #00bcd4;
+        --ai-light: #e1f5fe;
+        --border-radius: 16px;
+        --navy-color: #0F4173;
+    }
+
+    /* Custom styles for Google Meet link */
+    .meet-link-container {
+        background-color: #fff;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        padding: 1rem;
+        margin: 0.75rem 0;
+    }
+
+    .meet-link-text {
+        color: var(--navy-color);
+        font-size: 0.875rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .meet-link-button {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background-color: var(--navy-color);
+        color: white;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        transition: background-color 0.2s;
+    }
+
+    .meet-link-button:hover {
+        background-color: #0c3566;
+    }
+
+    .meet-link-button svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        margin-right: 0.5rem;
+    }
+
+    /* Hide search bar in admin navbar */
+    .admin-header .search-bar {
+        display: none !important;
+    }
+
+    /* Main Chat Layout */
+    .chat-container {
+        display: flex;
+        height: calc(100vh - 60px);
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        flex-direction: column;
+    }
+
+    .chat-top-section {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .chat-content {
+        flex: 0.65; /* Reduced to give more space to sidebar */
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #e1e1e1;
+        min-width: 0; /* Prevent flex items from overflowing */
+    }
+
+    .chat-sidebar {
+        flex: 0.35; /* Use flex ratio instead of fixed width */
+        min-width: 300px; /* Minimum width */
+        background-color: #f9fbfd;
+        padding: 20px;
+        overflow-y: auto;
+        overflow-x: hidden; /* Prevent horizontal scrolling */
+    }
+
+    .mobile-sidebar {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 90%;
+        max-width: 350px;
+        height: 100%;
+        background-color: white;
+        z-index: 1050;
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        transition: right 0.3s ease;
+        display: none; /* Hidden by default */
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .mobile-sidebar.active {
+        right: 0;
+    }
+
+    .mobile-sidebar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+
+    .mobile-sidebar-header h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 500;
+    }
+
+    .mobile-sidebar-header button {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    .mobile-sidebar-content {
+        padding: 1rem;
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+
+    /* Chat Header */
+    .chat-header {
+        background-color: #fff;
+        border-bottom: 1px solid #e1e1e1;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .chat-header-info {
+        flex-grow: 1;
+    }
+
+    .chat-header-info h3 {
+        margin: 0;
+        font-size: 18px;
+        color: #333;
+        display: flex;
+        align-items: center;
+    }
+
+    .chat-header-info p {
+        margin: 5px 0 0;
+        font-size: 13px;
+        color: #666;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .chat-header-actions {
+        display: flex;
+        align-items: center;
+    }
+
+    .close-chat-button {
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        background-color: transparent;
+        border: 1px solid #ddd;
+        color: #666;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-left: 10px;
+    }
+
+    .close-chat-button:hover {
+        background-color: #f44336;
+        color: white;
+        border-color: #f44336;
+    }
+
+    .close-chat-button .material-icons {
+        font-size: 20px;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-right: 10px;
+    }
+
+    .badge.human {
+        background-color: var(--admin-light);
+        color: var(--admin-color);
+    }
+
+    .badge.ai {
+        background-color: var(--ai-light);
+        color: var(--ai-color);
+    }
+
+    .history-tab {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        background-color: #f0f4f8;
+        color: var(--admin-color);
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        margin-left: 10px;
+        border: 1px solid #e0e4e8;
+    }
+
+    .history-tab:hover {
+        background-color: #e0e4e8;
+    }
+
+    .history-tab .material-icons {
+        font-size: 14px;
+        margin-right: 4px;
+    }
+
+    /* Action Buttons */
+    .chat-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .action-button {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border-radius: 0.25rem;
+        background-color: white;
+        border: 1px solid #dee2e6;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .action-button:hover {
+        background-color: #e9ecef;
+    }
+
+    .action-button i, .action-button .material-icons {
+        margin-right: 5px;
+        font-size: 18px;
+    }
+
+    /* Chat Messages */
+    .chat-messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background-color: #f9fbfd;
+        max-height: calc(100vh - 220px); /* Set maximum height to prevent overflow */
+    }
+
+    /* Message alignment - ensure admin and AI messages on right, visitor on left */
+    .message-container {
+        display: flex;
+        margin-bottom: 16px;
+        max-width: 75%; /* Reduced from 80% to match user chat */
+        align-items: flex-start;
+        position: relative; /* Ensure consistent positioning */
+    }
+
+    /* Visitor messages (on left) */
+    .message-container:not(.admin-message):not(.ai-message) {
+        margin-right: auto;
+        margin-left: 0;
+        width: 100%; /* Ensure container takes full width */
+        justify-content: flex-start; /* Force alignment to start */
+        max-width: 75%; /* Same as other messages */
+        flex-direction: row; /* Ensure avatar appears before message */
+    }
+
+    /* Visitor message bubble */
+    .message-visitor {
+        margin-right: auto; /* Push bubble to the left */
+    }
+
+    /* Visitor avatar - move to left side */
+    .visitor-avatar {
+        background-color: var(--visitor-color);
+        color: white;
+        margin-right: 6px; /* Space between avatar and message */
+        margin-left: 0; /* Reset left margin */
+    }
+
+    /* Admin and AI messages (on right) */
+    .message-container.admin-message,
+    .message-container.ai-message {
+        margin-left: auto;
+        margin-right: 0;
+        flex-direction: row-reverse;
+    }
+
+    .message {
+        padding: 12px 16px;
+        border-radius: var(--border-radius);
+        position: relative;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        flex: 1; /* Allow the message to take available space */
+        max-width: calc(100% - 45px); /* Account for avatar width + margin */
+    }
+
+    .message-visitor {
+        background-color: var(--visitor-light);
+        color: #333;
+        border-top-left-radius: 4px;
+    }
+
+    .message-admin {
+        background-color: var(--admin-color);
+        color: white;
+        border-top-right-radius: 4px;
+    }
+
+    .message-ai {
+        background-color: var(--ai-light);
+        color: #333;
+        border-top-right-radius: 4px;
+        border-left: 3px solid var(--ai-color);
+    }
+
+    /* Consistent avatar positioning */
+    .profile-avatar, .avatar-initials {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        flex-shrink: 0; /* Prevent avatar from shrinking */
+    }
+
+    /* Admin and AI avatar on right - closer to message */
+    .admin-message .profile-avatar,
+    .admin-message .avatar-initials,
+    .ai-message .profile-avatar,
+    .ai-message .avatar-initials {
+        margin-left: 6px;
+    }
+
+    /* Visitor avatar */
+    .message-container:not(.admin-message):not(.ai-message) .profile-avatar,
+    .message-container:not(.admin-message):not(.ai-message) .avatar-initials {
+        margin-right: 6px;
+    }
+
+    /* Rounded profile images */
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%; /* Ensure rounded image */
+    }
+
+    .avatar-initials {
+        background-color: var(--admin-color);
+        color: white;
+    }
+
+    .ai-avatar {
+        background-color: var(--ai-light);
+        color: var(--ai-color);
+        border: 1px solid var(--ai-color);
+    }
+
+    .ai-avatar .material-icons {
+        font-size: 20px;
+    }
+
+    .message-sender {
+        font-weight: 500;
+        font-size: 12px;
+        margin-bottom: 5px;
+        opacity: 0.8;
+    }
+
+    .message-content {
+        font-size: 14px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    .message-meta {
+        display: flex;
+        justify-content: flex-end;
+        font-size: 11px;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
+
+    /* System message styles - UPDATED */
+    .system-message {
+        display: flex;
+        justify-content: center;
+        margin: 16px 0;
+        padding: 0 15px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .system-message-content {
+        background-color: #ffffff;
+        color: #6c757d;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+        max-width: 80%;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        display: inline-block;
+    }
+
+    .system-message-time {
+        margin-left: 8px;
+        opacity: 0.6;
+        font-size: 11px;
+        display: inline-block;
+    }
+
+    /* Chat Input */
+    .chat-input {
+        display: flex;
+        padding: 15px;
+        background-color: #fff;
+        border-top: 1px solid #e1e1e1;
+    }
+
+    .chat-input input {
+        flex: 1;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 24px;
+        outline: none;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+
+    .chat-input input:focus {
+        border-color: var(--admin-color);
+    }
+
+    .chat-input button {
+        width: 44px;
+        height: 44px;
+        margin-left: 10px;
+        background-color: var(--admin-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    .chat-input button:hover {
+        background-color: #0a3055;
+    }
+
+    /* Visitor Info Panel */
+    .visitor-info-card {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .visitor-info-card h4 {
+        margin: 0 0 12px;
+        color: #333;
+        font-size: 16px;
+        font-weight: 600;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .visitor-details {
+        font-size: 14px;
+    }
+
+    .visitor-details p {
+        margin: 8px 0;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .visitor-details strong {
+        color: #555;
+    }
+
+    .visitor-details .detail-value {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .mt-4 {
+        margin-top: 1rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    /* Quick Responses */
+    .quick-responses {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .quick-responses h4 {
+        margin: 0 0 12px;
+        color: #333;
+        font-size: 16px;
+        font-weight: 600;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .quick-response-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .quick-response-btn {
+        background-color: var(--admin-light);
+        color: var(--admin-color);
+        border: none;
+        border-radius: 16px;
+        padding: 6px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .quick-response-btn:hover {
+        background-color: #c8d8e8;
+    }
+
+    .mobile-quick-response {
+        margin-bottom: 8px;
+    }
+
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow: auto;
+    }
+
+    .modal-content {
+        background-color: #fff;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 700px;
+        max-height: 600px;
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        position: relative;
+    }
+
+    .close {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #666;
+        cursor: pointer;
+    }
+
+    .close:hover {
+        color: #333;
+    }
+
+    /* Typing indicators */
+    .typing-indicator {
+        display: none;
+        align-items: center;
+        margin-bottom: 16px;
+        max-width: 75%;
+        margin-top: 16px; /* Add spacing above typing indicators */
+        position: relative; /* For positioning */
+    }
+
+    .typing-indicator.visitor-typing {
+        margin-right: auto;
+        margin-left: 0;
+    }
+
+    .typing-indicator.admin-typing, .typing-indicator.ai-typing {
+        margin-left: auto;
+        margin-right: 0;
+        flex-direction: row-reverse;
+    }
+
+    .typing-bubble {
+        padding: 12px 16px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        position: relative;
+        max-width: calc(100% - 45px);
+        background-color: #ffffff; /* White background for all typing bubbles */
+        border: 1px solid #e9ecef; /* Light border */
+        color: #6c757d; /* Gray text */
+    }
+
+    .typing-bubble .message-sender {
+        font-weight: 500;
+        font-size: 12px;
+        margin-bottom: 5px;
+        opacity: 0.8;
+        color: #6c757d; /* Gray text for sender name */
+    }
+
+    .typing-bubble.visitor-typing {
+        border-top-left-radius: 4px;
+    }
+
+    .typing-bubble.admin-typing {
+        border-top-right-radius: 4px;
+    }
+
+    .typing-bubble.ai-typing {
+        border-top-right-radius: 4px;
+    }
+
+    .typing-bubble .dots {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .typing-bubble .dot {
+        height: 8px;
+        width: 8px;
+        border-radius: 50%;
+        background-color: #adb5bd; /* Medium gray dots */
+        opacity: 0.6;
+        margin: 0 2px;
+        animation: typingAnimation 1.4s infinite;
+        display: inline-block;
+    }
+
+    .typing-bubble .dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing-bubble .dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes typingAnimation {
+        0%, 60%, 100% {
+            transform: translateY(0);
+        }
+        30% {
+            transform: translateY(-5px);
+        }
+    }
+
+    /* Chat History */
+    .chat-history {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .chat-history-item {
+        border: 1px solid #eee;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .chat-history-header {
+        background-color: #f5f7fa;
+        padding: 12px 16px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .chat-history-header h4 {
+        margin: 0;
+        font-size: 15px;
+        color: #333;
+    }
+
+    .chat-history-header p {
+        margin: 5px 0 0;
+        font-size: 12px;
+        color: #666;
+        display: flex;
+        gap: 10px;
+    }
+
+    .chat-history-messages {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .history-message {
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        max-width: 80%;
+    }
+
+    .history-message.visitor {
+        background-color: var(--visitor-light);
+        align-self: flex-start;
+    }
+
+    .history-message.admin {
+        background-color: var(--admin-light);
+        color: var(--admin-color);
+        align-self: flex-end;
+    }
+
+    .history-message-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
+
+    /* Save Tag Button */
+    .btn {
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background-color: var(--admin-color);
+        color: white;
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background-color: #0a3055;
+    }
+
+    /* Utility classes for responsive display */
+    .d-md-none {
+        display: none;
+    }
+
+    /* Accordion Styles for Mobile */
+    .accordion {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .accordion-item {
+        border: 1px solid #e1e1e1;
+        margin-bottom: 5px;
+    }
+
+    .accordion-header {
+        margin: 0;
+    }
+
+    .accordion-button {
+        width: 100%;
+        padding: 12px 15px;
+        background-color: #f5f7fa;
+        border: none;
+        text-align: left;
+        font-weight: 600;
+        font-size: 15px;
+        color: #333;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        position: relative;
+    }
+
+    .accordion-button:hover {
+        background-color: #e8eef7;
+    }
+
+    .accordion-button:after {
+        content: '\25BC';
+        font-size: 12px;
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: transform 0.2s;
+    }
+
+    .accordion-button.collapsed:after {
+        transform: translateY(-50%) rotate(-90deg);
+    }
+
+    .accordion-body {
+        padding: 15px;
+        background-color: #fff;
+    }
+
+    /* Responsive layout fixes */
+    @media (max-width: 768px) {
+        .chat-container {
+            flex-direction: column;
+            height: auto;
+            min-height: 100vh;
+        }
+
+        .chat-top-section {
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .chat-content {
+            flex: 1; /* Full width on mobile */
+            height: 70vh;
+            order: 1; /* Place content at top */
+            border-right: none;
+        }
+
+        .chat-sidebar {
+            width: 100%;
+            height: auto;
+            order: 2; /* Place desktop sidebar below content */
+            display: none; /* Hidden by default on mobile */
+        }
+
+        .chat-messages {
+            max-height: calc(70vh - 150px); /* Adjusted for mobile */
+        }
+
+        .mobile-sidebar {
+            display: flex; /* Show structure but still hidden off-screen until activated */
+        }
+
+        .d-md-none {
+            display: inline-flex !important; /* Show on mobile */
+        }
+
+        /* Make toggle sidebar button more visible */
+        #toggle-sidebar-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1040;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--admin-color);
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #toggle-sidebar-btn .material-icons {
+            margin-right: 0;
+        }
+
+        .chat-actions {
+            padding: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .action-button {
+            padding: 6px 10px;
+            font-size: 12px;
+            margin: 0 3px 5px;
+        }
+
+        .modal-content {
+            width: 95%;
+            margin: 5% auto;
+        }
+
+        /* Fix header on mobile */
+        .admin-header {
+            z-index: 1030; /* Make sure header stays above content */
+        }
+
+        .quick-response-list {
+            margin-bottom: 20px;
+        }
+
+        .mobile-quick-response {
+            flex-grow: 1;
+            text-align: center;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .mobile-sidebar {
+            display: none; /* Hide on desktop */
+        }
+    }
+
+    .visitor-info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+        font-size: 0.875rem; /* Smaller font size */
+    }
+
+    .visitor-info-table th,
+    .visitor-info-table td {
+        padding: 0.4rem 0.5rem; /* Reduced padding */
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+        word-break: break-word; /* Prevent long text from overflowing */
+    }
+
+    .visitor-info-table th {
+        width: 35%;
+        font-weight: 500;
+        color: #495057;
+    }
+
+    .visitor-info-table td {
+        color: #212529;
+    }
+
+    /* Make visitor info card more compact */
+    .visitor-info-card {
+        margin-bottom: 15px;
+        padding: 12px;
+    }
+
+    .visitor-info-card h4 {
+        margin-bottom: 10px;
+        font-size: 1rem;
+    }
+
+    /* Chat History Modal Styling */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #fff;
+        margin: 5% auto;
+        width: 80%;
+        max-width: 800px;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        animation: modalFadeIn 0.3s;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #e5e5e5;
+        background-color: #0F4173;
+        color: white;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close:hover {
+        opacity: 0.8;
+    }
+
+    @keyframes modalFadeIn {
+        from {opacity: 0; transform: translateY(-20px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+
+    /* Chat History Message Styling */
+    .chat-history-item {
+        margin-bottom: 20px;
+    }
+
+    .date-divider {
+        text-align: center;
+        margin: 1rem 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+        position: relative;
+    }
+
+    .date-divider:before, .date-divider:after {
+        content: "";
+        display: inline-block;
+        height: 1px;
+        position: relative;
+        vertical-align: middle;
+        width: 25%;
+        background-color: #e0e0e0;
+    }
+
+    .date-divider:before {
+        right: 1em;
+        margin-left: -50%;
+    }
+
+    .date-divider:after {
+        left: 1em;
+        margin-right: -50%;
+    }
+
+    .history-message {
+        display: flex;
+        flex-direction: column;
+        max-width: 75%;
+        padding: 10px 15px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        position: relative;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .history-message.visitor {
+        background-color: #e6eef5;
+        color: #333;
+        margin-left: auto;
+        border-top-right-radius: 4px;
+    }
+
+    .history-message.admin {
+        background-color: #0F4173;
+        color: white;
+        margin-right: auto;
+        border-top-left-radius: 4px;
+    }
+
+    .history-message.ai {
+        background-color: #e1f5fe;
+        color: #00838f;
+        margin-right: auto;
+        border-top-left-radius: 4px;
+    }
+
+    .history-message-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        margin-top: 5px;
+        opacity: 0.8;
+    }
+
+    .history-message-content {
+        word-break: break-word;
+    }
+
+    /* System messages */
+    .history-system-message {
+        display: flex;
+        justify-content: center;
+        margin: 16px 0;
+        padding: 0 15px;
+    }
+
+    .history-system-message-content {
+        background-color: #ffffff;
+        color: #6c757d;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+        max-width: 80%;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .history-system-message-time {
+        margin-left: 8px;
+        opacity: 0.6;
+        font-size: 11px;
+    }
+
+    /* Improved Modal Styling */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1050; /* Higher z-index to ensure it's on top */
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #fff;
+        margin: 5vh auto;
+        width: 85%;
+        max-width: 900px;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        animation: modalFadeIn 0.3s;
+        overflow: hidden;
+        max-height: 90vh; /* Limit height to prevent overflow */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid #e5e5e5;
+        background-color: #0F4173;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .close {
+        color: white;
+        font-size: 32px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+        transition: opacity 0.2s;
+        padding: 0 8px;
+    }
+
+    .close:hover {
+        opacity: 0.8;
+    }
+
+    #chat-history-content {
+        padding: 20px;
+        overflow-y: auto;
+        flex-grow: 1;
+        background-color: #f9fbfd;
+        scrollbar-color: rgba(15, 65, 115, 0.3) transparent;
+    }
+
+    #chat-history-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #chat-history-content::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #chat-history-content::-webkit-scrollbar-thumb {
+        background-color: rgba(15, 65, 115, 0.3);
+        border-radius: 8px;
+    }
+
+    @keyframes modalFadeIn {
+        from {opacity: 0; transform: translateY(-30px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+
+    /* Chat History Item Styling */
+    .chat-history-item {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .chat-history-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Responsive modal adjustments */
+    @media (max-width: 768px) {
+        .modal-content {
+            width: 95%;
+            margin: 3vh auto;
+            max-height: 94vh;
+        }
+
+        .modal-header {
+            padding: 12px 16px;
+        }
+
+        .modal-header h3 {
+            font-size: 1.1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <!-- Add notification sound if not already present -->
+    <audio id="notification-sound" src="{{ url_for('static', filename='sounds/notification.mp3') }}" preload="auto"></audio>
+
+    <div class="chat-top-section">
+        <div class="chat-content">
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <h3>Chat with {% if visitor.name %}{{ visitor.name }}{% else %}Visitor ({{ visitor.ip_address }}){% endif %}</h3>
+                    <p>
+                        Started: {{ format_time(room.created_at) }} - {{ room.created_at.strftime('%d %b') }} |
+                        {% if room.chat_mode == 'human' %}
+                            <span class="badge human">Human Mode</span>
+                        {% else %}
+                            <span class="badge ai">AI Mode</span>
+                        {% endif %}
+                        <span class="history-tab" id="history-tab">
+                            <span class="material-icons">history</span>
+                            History
+                        </span>
+                    </p>
+                </div>
+                <div class="chat-header-actions">
+                    <button id="close-chat-btn" class="close-chat-button" data-room-id="{{ room.id }}" title="Close Chat">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages" data-room-id="{{ room.id }}" room-id="{{ room.id }}">
+                {% for message in messages %}
+                    {% if message.is_system_message %}
+                        <!-- System message -->
+                        <div class="system-message">
+                            <div class="system-message-content">
+                                {{ message.content }}
+                                <span class="system-message-time">{{ format_time(message.timestamp) }}</span>
+                            </div>
+                        </div>
+                    {% elif message.is_from_visitor %}
+                        <div class="message-container">
+                            <div class="avatar-initials visitor-avatar">
+                                {% if visitor.name and visitor.name != 'None' %}{{ visitor.name|first|upper }}{% else %}V{% endif %}
+                            </div>
+                            <div class="message message-visitor">
+                                <div class="message-sender">
+                                    {% if visitor.name and visitor.name != 'None' %}{{ visitor.name }}{% else %}Visitor ({{ visitor.ip_address }}){% endif %}
+                                </div>
+                                <div class="message-content">
+                                    {{ message.content|safe }}
+                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">{{ format_time(message.timestamp) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif message.is_ai_generated %}
+                        <div class="message-container ai-message">
+                            <div class="avatar-initials ai-avatar">
+                                <span class="material-icons">smart_toy</span>
+                            </div>
+                            <div class="message message-ai">
+                                <div class="message-sender">
+                                    AI Assistant
+                                </div>
+                                <div class="message-content">
+                                    {{ message.content|safe }}
+                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">{{ format_time(message.timestamp) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="message-container admin-message">
+                            {% if message.admin_profile_image %}
+                                <div class="profile-avatar">
+                                    <img src="{{ message.admin_profile_image }}" alt="{{ message.sender_name }}">
+                                </div>
+                            {% else %}
+                                <div class="avatar-initials">
+                                    {{ message.sender_name|default('A')|first|upper }}
+                                </div>
+                            {% endif %}
+                            <div class="message message-admin">
+                                <div class="message-sender">
+                                    {{ message.sender_name }}
+                                </div>
+                                <div class="message-content">
+                                    {{ message.content|safe }}
+                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">{{ format_time(message.timestamp) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Typing indicators -->
+            <div id="visitor-typing-indicator" class="typing-indicator visitor-typing">
+                <div class="avatar-initials visitor-avatar">
+                    {{ visitor.name|default('V')|first|upper if visitor and visitor.name else 'V' }}
+                </div>
+                <div class="typing-bubble visitor-typing">
+                    <div class="message-sender visitor-typing-name">
+                        {% if visitor.name and visitor.name != 'None' %}{{ visitor.name }}{% else %}Visitor ({{ visitor.ip_address }}){% endif %}
+                    </div>
+                    <div class="dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-typing-indicator" class="typing-indicator admin-typing">
+                <div class="avatar-initials">
+                    {{ admin.name|default('A')|first|upper }}
+                </div>
+                <div class="typing-bubble admin-typing">
+                    <div class="dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ai-typing-indicator" class="typing-indicator ai-typing">
+                <div class="avatar-initials ai-avatar">
+                    <span class="material-icons">smart_toy</span>
+                </div>
+                <div class="typing-bubble ai-typing">
+                    <div class="dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
+                <button id="send-btn"><i class="las la-paper-plane"></i></button>
+            </div>
+
+            <div class="chat-actions">
+                <button id="google-meet-btn" class="action-button" data-room-id="{{ room.id }}">
+                    <span class="material-icons">videocam</span> Send Meet Link
+                </button>
+                <button id="transcript-btn" class="action-button" data-room-id="{{ room.id }}">
+                    <span class="material-icons">description</span> Transcript
+                </button>
+            </div>
+        </div>
+
+        <!-- Visitor info button for mobile -->
+        <button id="toggle-sidebar-btn" class="d-md-none">
+            <span class="material-icons">info</span>
+        </button>
+
+        <div class="chat-sidebar" id="chat-sidebar">
+            <div class="sidebar-close d-md-none" id="sidebar-close">
+                <span class="material-icons">close</span>
+            </div>
+
+            <div class="visitor-info-card">
+                <h4>Visitor Information</h4>
+                <div class="visitor-details">
+                    <table class="visitor-info-table" width="100%">
+                        <tbody>
+                            {% if visitor.name %}
+                            <tr>
+                                <th>Name</th>
+                                <td>{{ visitor.name }}</td>
+                            </tr>
+                            {% endif %}
+
+                            {% if visitor.email %}
+                            <tr>
+                                <th>Email</th>
+                                <td>{{ visitor.email }}</td>
+                            </tr>
+                            {% endif %}
+
+                            <tr>
+                                <th>IP Address</th>
+                                <td>{{ visitor.ip_address if visitor else 'Unknown' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Current Page</th>
+                                <td class="text-sm">{{ visitor.current_page if visitor else 'Unknown' }}</td>
+                            </tr>
+                            <tr>
+                                <th>First Seen</th>
+                                <td>{{ visitor.first_seen.strftime('%d %b %Y, %H:%M') if visitor and visitor.first_seen else 'Unknown' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Visit Count</th>
+                                <td>{{ visitor.visit_count if visitor else '1' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Time on Site</th>
+                                <td>{{ visitor.time_on_site|default(0)|int // 60 }} min {{ visitor.time_on_site|default(0)|int % 60 }} sec</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="mt-4">
+                        <strong>Chat Tag:</strong>
+                        <div class="d-flex mt-2">
+                            <input type="text" id="chat-tag" class="form-control" placeholder="Add tag (e.g., Product Inquiry)" value="{{ room.chat_tag or '' }}">
+                            <button id="save-tag-btn" class="btn btn-primary">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-responses">
+                <h4>Quick Responses</h4>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>Select a response to send</span>
+                    <a href="/quick_responses" class="btn btn-sm btn-outline-primary" target="_blank">
+                        <i class="fas fa-cog"></i> Manage
+                    </a>
+                </div>
+                <div class="quick-response-list" id="quick-response-list">
+                    <!-- Quick responses will be loaded here -->
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Sidebar -->
+    <div class="mobile-sidebar" id="mobile-sidebar">
+        <div class="mobile-sidebar-header">
+            <h3>Visitor Information</h3>
+            <button id="close-mobile-sidebar">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+        <div class="mobile-sidebar-content">
+            <div class="visitor-details">
+                <!-- Updated visitor information to tabular format -->
+                <table class="visitor-info-table" width="100%">
+                    <tbody>
+                        {% if visitor.name %}
+                        <tr>
+                            <th>Name</th>
+                            <td>{{ visitor.name }}</td>
+                        </tr>
+                        {% endif %}
+
+                        {% if visitor.email %}
+                        <tr>
+                            <th>Email</th>
+                            <td>{{ visitor.email }}</td>
+                        </tr>
+                        {% endif %}
+
+                        <tr>
+                            <th>IP Address</th>
+                            <td>{{ visitor.ip_address if visitor else 'Unknown' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Current Page</th>
+                            <td class="text-sm">{{ visitor.current_page if visitor else 'Unknown' }}</td>
+                        </tr>
+                        <tr>
+                            <th>First Seen</th>
+                            <td>{{ visitor.first_seen.strftime('%d %b %Y, %H:%M') if visitor and visitor.first_seen else 'Unknown' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Visit Count</th>
+                            <td>{{ visitor.visit_count if visitor else '1' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Time on Site</th>
+                            <td>{{ visitor.time_on_site|default(0)|int // 60 }} min {{ visitor.time_on_site|default(0)|int % 60 }} sec</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="mt-4">
+                    <strong>Chat Tag:</strong>
+                    <div class="d-flex mt-2">
+                        <input type="text" id="mobile-chat-tag" class="form-control" placeholder="Add tag (e.g., Product Inquiry)" value="{{ room.chat_tag or '' }}">
+                        <button id="mobile-save-tag-btn" class="btn btn-primary">Save</button>
+                    </div>
+                </div>
+
+                <!-- Quick responses for mobile -->
+                <div class="mt-4">
+                    <h4>Quick Responses</h4>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Select a response</span>
+                        <a href="/quick_responses" class="btn btn-sm btn-outline-primary" target="_blank">
+                            <i class="fas fa-cog"></i> Manage
+                        </a>
+                    </div>
+                    <div class="quick-response-list" id="mobile-quick-response-list">
+                        <!-- Quick responses will be loaded here -->
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat History Modal -->
+<div id="chat-history-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Chat History</h3>
+            <span class="close" id="close-history-modal">&times;</span>
+        </div>
+        <div id="chat-history-content" class="p-4 bg-gray-50 overflow-y-auto" style="max-height: 70vh; scrollbar-width: thin;">
+            <p>Loading chat history...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<!-- Google Material Icons -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Connect to Socket.IO with reconnection settings
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
+
+        // Make socket available globally for the sidebar navigation
+        window.socketManager = socket;
+        const roomId = '{{ room.id }}';
+        const adminId = '{{ admin.id }}';
+        const adminName = '{{ admin.name|default("Admin")|e }}';
+        const adminProfileImage = '{{ admin.profile_image }}';
+
+        // Track connection status
+        let isConnected = false;
+
+        // Store current time format
+        let currentTimeFormat = '{{ time_format }}';
+
+        // Function to request notification permission
+        function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                console.log("This browser does not support desktop notification");
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
+        // Request notification permission when page loads
+        requestNotificationPermission();
+
+        // Function to show browser notification
+        function showNotification(title, message) {
+            // Only show notification if the page is not visible (minimized/background)
+            if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
+                const notification = new Notification(title, {
+                    body: message,
+                    icon: '/static/images/favicon.png'
+                });
+
+                // Focus on window when notification is clicked
+                notification.onclick = function() {
+                    window.focus();
+                    notification.close();
+                };
+            }
+        }
+
+        // Handle visibility change to track if page is minimized/in background
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                // Mark any unread messages as read when page becomes visible
+                markMessagesAsRead();
+            }
+        });
+
+        function markMessagesAsRead() {
+            // You can implement logic here to mark messages as read
+        }
+
+        // Debug info
+        console.log('Admin chat initialized with:', {
+            roomId,
+            adminId,
+            adminName,
+            adminProfileImage
+        });
+
+        // Listen for settings updates
+        socket.on('settings_updated', function(data) {
+            console.log('Settings updated:', data);
+            if (data.time_format) {
+                currentTimeFormat = data.time_format;
+                // Update all timestamps with the new format
+                updateAllTimestamps();
+                // Also update history timestamps if modal is open
+                updateHistoryTimestamps();
+            }
+        });
+
+        // Function to format time based on current time format
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return timestamp; // Return as is if invalid date
+
+            if (currentTimeFormat === '12h') {
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+            } else {
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: false });
+            }
+        }
+
+        // Function to update all timestamps on the page
+        function updateAllTimestamps() {
+            document.querySelectorAll('.message-time').forEach(element => {
+                const timestamp = element.getAttribute('data-timestamp') || element.textContent;
+                element.textContent = formatTime(timestamp);
+            });
+
+            document.querySelectorAll('.system-message-time').forEach(element => {
+                const timestamp = element.getAttribute('data-timestamp') || element.textContent;
+                element.textContent = formatTime(timestamp);
+            });
+        }
+
+        // Function to update all timestamps in the chat history modal
+        function updateHistoryTimestamps() {
+            document.querySelectorAll('#chat-history-content .message-time, #chat-history-content .system-message-time').forEach(element => {
+                const timestamp = element.getAttribute('data-timestamp') || element.textContent;
+                if (timestamp) {
+                    element.textContent = formatTime(timestamp);
+                }
+            });
+        }
+
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const messagesContainer = document.getElementById('chat-messages');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+        const mobileSidebar = document.getElementById('mobile-sidebar');
+        const closeMobileSidebarBtn = document.getElementById('close-mobile-sidebar');
+        const googleMeetBtn = document.getElementById('google-meet-btn');
+        const transcriptBtn = document.getElementById('transcript-btn');
+        const closeChatBtn = document.getElementById('close-chat-btn');
+        const chatTagInput = document.getElementById('chat-tag');
+        const saveTagBtn = document.getElementById('save-tag-btn');
+        const mobileChatTagInput = document.getElementById('mobile-chat-tag');
+        const mobileSaveTagBtn = document.getElementById('mobile-save-tag-btn');
+
+        // Typing indicator elements
+        const visitorTypingIndicator = document.getElementById('visitor-typing-indicator');
+        const adminTypingIndicator = document.getElementById('admin-typing-indicator');
+        const aiTypingIndicator = document.getElementById('ai-typing-indicator');
+
+        // Typing status variables
+        let typingTimer;
+        let isTyping = false;
+        const typingTimeout = 3000; // 3 seconds
+
+        // Socket connection events for debugging
+        socket.on('connect', function() {
+            console.log('Socket connected, joining admin room:', roomId);
+            isConnected = true;
+            // Join admin room
+            socket.emit('join_admin_room', {
+                room_id: roomId,
+                admin_id: adminId,
+                admin_name: adminName
+            });
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from WebSocket server');
+            isConnected = false;
+        });
+
+        socket.on('error', function(error) {
+            console.error('Socket error:', error);
+        });
+
+        socket.on('reconnect', function(attemptNumber) {
+            console.log('Reconnected to WebSocket server after ' + attemptNumber + ' attempts');
+            isConnected = true;
+
+            // Rejoin room on reconnection
+            socket.emit('join_admin_room', {
+                room_id: roomId,
+                admin_id: adminId
+            });
+        });
+
+        socket.on('reconnect_attempt', function(attemptNumber) {
+            console.log('Attempting reconnect: ' + attemptNumber);
+        });
+
+        socket.on('reconnect_error', function(error) {
+            console.log('Reconnection error: ', error);
+        });
+
+        socket.on('reconnect_failed', function() {
+            console.log('Failed to reconnect to WebSocket server');
+        });
+
+        socket.on('admin_joined', function(data) {
+            console.log('Admin joined confirmation:', data);
+        });
+
+        // Scroll to bottom of messages
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Scroll to bottom on page load
+        scrollToBottom();
+
+        // Send message
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                // Reset typing state
+                if (isTyping) {
+                    isTyping = false;
+                    clearTimeout(typingTimer);
+                    console.log('Sending admin_stopped_typing event from sendMessage');
+                    socket.emit('admin_stopped_typing', {
+                        room_id: roomId,
+                        admin_id: adminId
+                    });
+                }
+
+                // Log the data being sent to help with debugging
+                console.log('Sending admin message with:', {
+                    room_id: roomId,
+                    admin_id: adminId,
+                    admin_name: adminName,
+                    admin_profile_image: adminProfileImage
+                });
+
+                socket.emit('admin_message', {
+                    room_id: roomId,
+                    admin_id: adminId,
+                    admin_name: adminName,
+                    admin_profile_image: adminProfileImage,
+                    content: message
+                });
+                messageInput.value = '';
+
+                // Hide all typing indicators
+                visitorTypingIndicator.style.display = 'none';
+                adminTypingIndicator.style.display = 'none';
+                aiTypingIndicator.style.display = 'none';
+            }
+        }
+
+        // Handle send button click
+        sendBtn.addEventListener('click', sendMessage);
+
+        // Handle enter key press
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (isTyping) {
+                    isTyping = false;
+                    clearTimeout(typingTimer);
+                    console.log('Sending admin_stopped_typing event from Enter keypress');
+                    socket.emit('admin_stopped_typing', {
+                        room_id: roomId,
+                        admin_id: adminId,
+                        timestamp: Date.now() // Add timestamp to ensure each event is unique
+                    });
+                }
+
+                // Hide all typing indicators immediately
+                visitorTypingIndicator.style.display = 'none';
+                adminTypingIndicator.style.display = 'none';
+                aiTypingIndicator.style.display = 'none';
+
+                sendMessage();
+            }
+        });
+
+        // Handle admin typing events - Add keydown event listener
+        messageInput.addEventListener('keydown', function(e) {
+            // Don't trigger on special keys like shift, ctrl, etc.
+            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' ||
+                e.key === 'Meta' || e.key === 'CapsLock' || e.key === 'Tab' ||
+                e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+                e.key === 'Enter') {
+                return;
+            }
+
+            // Always emit typing event on keydown, regardless of current state
+            socket.emit('admin_typing', {
+                room_id: roomId,
+                admin_id: adminId,
+                admin_name: adminName,
+                admin_profile_image: adminProfileImage,
+                timestamp: Date.now() // Add timestamp to ensure each event is unique
+            });
+
+            isTyping = true;
+
+            // Clear existing timer
+            clearTimeout(typingTimer);
+
+            // Set a new timer
+            typingTimer = setTimeout(function() {
+                isTyping = false;
+                socket.emit('admin_stopped_typing', {
+                    room_id: roomId,
+                    admin_id: adminId,
+                    timestamp: Date.now() // Add timestamp to ensure each event is unique
+                });
+            }, typingTimeout);
+        });
+
+        // Toggle mobile sidebar
+        if (toggleSidebarBtn) {
+            toggleSidebarBtn.addEventListener('click', function() {
+                document.querySelector('.mobile-sidebar').classList.add('active');
+                // Add overlay to prevent clicking through
+                const overlay = document.createElement('div');
+                overlay.className = 'sidebar-overlay';
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100%';
+                overlay.style.height = '100%';
+                overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                overlay.style.zIndex = '1040';
+                document.body.appendChild(overlay);
+
+                // Close sidebar when clicking overlay
+                overlay.addEventListener('click', function() {
+                    document.querySelector('.mobile-sidebar').classList.remove('active');
+                    document.body.removeChild(overlay);
+                });
+            });
+        }
+
+        // Close mobile sidebar
+        if (closeMobileSidebarBtn) {
+            closeMobileSidebarBtn.addEventListener('click', function() {
+                document.querySelector('.mobile-sidebar').classList.remove('active');
+                const overlay = document.querySelector('.sidebar-overlay');
+                if (overlay) {
+                    document.body.removeChild(overlay);
+                }
+            });
+        }
+
+        // Handle new message from server
+        socket.on('new_message', function(data) {
+            console.log('Received new message:', data);
+
+            if (data.room_id === roomId) {
+                // Clear any pending typing indicator timers
+                if (window.adminTypingHideTimer) {
+                    clearTimeout(window.adminTypingHideTimer);
+                    window.adminTypingHideTimer = null;
+                }
+
+                if (window.visitorTypingHideTimer) {
+                    clearTimeout(window.visitorTypingHideTimer);
+                    window.visitorTypingHideTimer = null;
+                }
+
+                // Hide all typing indicators immediately
+                visitorTypingIndicator.style.display = 'none';
+                adminTypingIndicator.style.display = 'none';
+                aiTypingIndicator.style.display = 'none';
+
+                // Get current chat mode
+                const currentChatMode = '{{ room.chat_mode }}';
+
+                // If message is from visitor and page is not visible, show notification ONLY in human mode
+                if (data.is_from_visitor && document.visibilityState !== 'visible' && currentChatMode === 'human') {
+                    // Play notification sound only in human mode
+                    const notificationSound = document.getElementById('notification-sound');
+                    if (notificationSound) {
+                        try {
+                            const soundClone = notificationSound.cloneNode(true);
+                            soundClone.play().catch(error => {
+                                console.log('Could not play notification sound:', error);
+                            });
+                        } catch (e) {
+                            notificationSound.play().catch(e => console.log('Sound playback failed:', e));
+                        }
+                    }
+
+                    // Show notification if page is not visible and in human mode
+                    if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
+                        let visitorName = "Visitor";
+
+                        // Try to get the visitor's name from the header
+                        const visitorNameElement = document.querySelector('.chat-header-info h3');
+                        if (visitorNameElement) {
+                            visitorName = visitorNameElement.textContent.trim();
+                        }
+
+                        const notification = new Notification(`New Message from ${visitorName}`, {
+                            body: data.content,
+                            icon: '/static/images/favicon.png'
+                        });
+
+                        notification.onclick = function() {
+                            window.focus();
+                            notification.close();
+                        };
+                    }
+                }
+
+                // Process Google Meet links in the content
+                data.content = formatGoogleMeetLinks(data.content);
+
+                // Create message element based on sender type
+                let messageHTML = '';
+
+                if (data.is_from_visitor) {
+                    // Visitor message
+                    const visitorName = '{{ visitor.name }}' && '{{ visitor.name }}' !== 'None' ?
+                        '{{ visitor.name }}' :
+                        'Visitor ({{ visitor.ip_address }})';
+                    const visitorInitial = visitorName.charAt(0).toUpperCase();
+
+                    messageHTML = `
+                        <div class="message-container">
+                            <div class="avatar-initials visitor-avatar">
+                                ${visitorInitial}
+                            </div>
+                            <div class="message message-visitor">
+                                <div class="message-sender">
+                                    ${visitorName}
+                                </div>
+                                <div class="message-content">
+                                    ${data.content}
+                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Play notification sound ONLY if page is not visible (admin is not actively viewing)
+                    if (document.visibilityState !== 'visible') {
+                        const notificationSound = document.getElementById('notification-sound');
+                        if (notificationSound) {
+                            notificationSound.play().catch(e => console.log('Sound playback failed:', e));
+                        }
+                    }
+                } else if (data.is_ai_generated) {
+                    // AI message
+                    messageHTML = `
+                        <div class="message-container ai-message">
+                            <div class="avatar-initials ai-avatar">
+                                <span class="material-icons">smart_toy</span>
+                            </div>
+                            <div class="message message-ai">
+                                <div class="message-sender">
+                                    AI Assistant
+                                </div>
+                                <div class="message-content">
+                                    ${data.content}
+                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Admin message
+                    const profileImage = data.admin_profile_image ?
+                        `<div class="profile-avatar"><img src="${data.admin_profile_image}" alt="${data.admin_name || 'Admin'}"></div>` :
+                        `<div class="avatar-initials">${(data.admin_name || 'Admin').charAt(0).toUpperCase()}</div>`;
+
+                    // Check if this is the current admin's message
+                    const isCurrentAdmin = data.sender_id === adminId;
+                    const displayName = isCurrentAdmin ? adminName : (data.admin_name || 'Admin');
+
+                    messageHTML = `
+                        <div class="message-container admin-message">
+                            ${profileImage}
+                            <div class="message message-admin">
+                                <div class="message-sender">
+                                    ${displayName}
+                                </div>
+                                <div class="message-content">
+                                    ${data.content}
+                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Append message to container
+                messagesContainer.innerHTML += messageHTML;
+
+        // Scroll to bottom
+                scrollToBottom();
+
+                // Mark message as read if it's from visitor
+                if (data.is_from_visitor) {
+                    socket.emit('mark_read', {
+                        message_id: data.id
+                    });
+                }
+            }
+        });
+
+        // Format Google Meet links
+        function formatGoogleMeetLinks(message) {
+            // Regex to detect Google Meet links
+            const googleMeetRegex = /(https?:\/\/(meet\.google\.com\/[a-zA-Z0-9\-_]+))/gi;
+
+            // Replace Google Meet links with formatted button
+            return message.replace(googleMeetRegex, function(match) {
+                return `<div class="meet-link-container">
+                    <p class="meet-link-text">
+                        Please join our live Google Meet to continue the discussion:
+                    </p>
+                    <a href="${match}" target="_blank" class="meet-link-button">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Join Meet
+                    </a>
+                </div>`;
+            });
+        }
+
+        // Also format existing messages when loading the page
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageContents = document.querySelectorAll('.message-content');
+            messageContents.forEach(content => {
+                content.innerHTML = formatGoogleMeetLinks(content.innerHTML);
+            });
+        });
+
+        // Handle Google Meet button
+        googleMeetBtn.addEventListener('click', function() {
+            // Show loading state
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+
+            fetch('/api/send_meeting_link', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    room_id: roomId
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button
+                this.disabled = false;
+                this.innerHTML = '<span class="material-icons">videocam</span> Send Meet Link';
+
+                if (data.success) {
+                    console.log('Meet link sent successfully:', data.meet_link);
+
+                    // The message will be delivered via websocket and formatted automatically
+                    // No need to manually create a message element here
+                } else {
+                    console.error('Failed to send meet link:', data.error);
+                    alert('Failed to send meet link: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                // Reset button
+                this.disabled = false;
+                this.innerHTML = '<span class="material-icons">videocam</span> Send Meet Link';
+
+                console.error('Error sending meet link:', error);
+                alert('Error sending meet link. Please try again.');
+            });
+        });
+
+        // Handle transcript button - Download as text file
+        transcriptBtn.addEventListener('click', function() {
+            const roomId = this.getAttribute('data-room-id');
+
+            // First fetch the transcript data
+            fetch(`/admin/api/transcript/${roomId}`)
+                .then(response => response.text())
+                .then(data => {
+                    // Create a blob from the data
+                    const blob = new Blob([data], { type: 'text/plain' });
+
+                    // Create a download link
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = URL.createObjectURL(blob);
+                    downloadLink.download = `chat-transcript-${roomId}.txt`;
+
+                    // Add to document, click and remove
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                })
+                .catch(error => {
+                    console.error('Error downloading transcript:', error);
+                    alert('Error downloading transcript. Please try again.');
+                });
+        });
+
+        // Handle close chat button - Only hide window, don't delete chat
+        if (closeChatBtn) {
+            closeChatBtn.addEventListener('click', function() {
+                const roomId = this.getAttribute('data-room-id');
+
+                // First, explicitly emit admin_leave_room event to update real-time tracking
+                socket.emit('admin_leave_room', {
+                    room_id: roomId,
+                    admin_id: adminId,
+                    admin_name: adminName
+                });
+
+                // Redirect to dashboard without closing the chat
+                window.location.href = '/admin/dashboard';
+            });
+        }
+
+        // Handle history tab
+        document.getElementById('history-tab').addEventListener('click', function() {
+            // Show the chat history modal
+            const chatHistoryModal = document.getElementById('chat-history-modal');
+            const chatHistoryContent = document.getElementById('chat-history-content');
+
+            // Show loading state
+            chatHistoryContent.innerHTML = '<p>Loading chat history...</p>';
+            chatHistoryModal.style.display = 'block';
+
+            // Fetch chat history
+            fetch(`/admin/api/chat_history_for_visitor/${roomId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let historyHTML = '';
+
+                        if (data.chats.length > 0) {
+                            // Sort chats from oldest to newest
+                            const sortedChats = [...data.chats].sort((a, b) => {
+                                return new Date(a.created_at) - new Date(b.created_at);
+                            });
+
+                            sortedChats.forEach(chat => {
+                                historyHTML += `<div class="chat-history-item mb-4">`;
+
+                                // Sort messages chronologically (oldest to newest)
+                                const sortedMessages = [...chat.messages].sort((a, b) => {
+                                    return new Date(a.timestamp) - new Date(b.timestamp);
+                                });
+
+                                // Track the current date to know when to insert date dividers
+                                let currentDate = null;
+
+                                sortedMessages.forEach(message => {
+                                    // Check if we need to add a date divider
+                                    const messageDate = new Date(message.timestamp);
+                                    const messageDateStr = messageDate.toDateString();
+
+                                    if (currentDate !== messageDateStr) {
+                                        // Format the date nicely
+                                        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                                        const formattedDate = messageDate.toLocaleDateString(undefined, options);
+
+                                        // Add a date divider as system message
+                                        historyHTML += `
+                                            <div class="system-message">
+                                                <div class="system-message-content">
+                                                    ${formattedDate}
+                                                </div>
+                                            </div>`;
+
+                                        currentDate = messageDateStr;
+                                    }
+
+                                    // Store the original timestamp for formatting
+                                    const isoTimestamp = message.timestamp;
+
+                                    // Format the message timestamp using our utility
+                                    const formattedTime = formatTime(isoTimestamp);
+
+                                    if (message.is_system_message) {
+                                        // System message
+                                        historyHTML += `
+                                            <div class="system-message">
+                                                <div class="system-message-content">
+                                                    ${message.content}
+                                                    <span class="system-message-time" data-timestamp="${isoTimestamp}">${formattedTime}</span>
+                                                </div>
+                                            </div>`;
+                                    } else if (message.is_from_visitor) {
+                                        // Visitor message
+                                        historyHTML += `
+                                            <div class="message-container">
+                                                <div class="avatar-initials visitor-avatar">
+                                                    ${(chat.visitor_name || 'V').charAt(0).toUpperCase()}
+                                                </div>
+                                                <div class="message message-visitor">
+                                                    <div class="message-sender">
+                                                        ${chat.visitor_name || 'Visitor'}
+                                                    </div>
+                                                    <div class="message-content">
+                                                        ${message.content}
+                                                    </div>
+                                                    <div class="message-meta">
+                                                        <span class="message-time" data-timestamp="${isoTimestamp}">${formattedTime}</span>
+                                                    </div>
+                                                </div>
+                                            </div>`;
+                                    } else {
+                                        // Admin or AI message
+                                        if (message.is_ai_generated) {
+                                            // AI message
+                                            historyHTML += `
+                                                <div class="message-container ai-message">
+                                                    <div class="avatar-initials ai-avatar">
+                                                        <span class="material-icons">smart_toy</span>
+                                                    </div>
+                                                    <div class="message message-ai">
+                                                        <div class="message-sender">
+                                                            AI Assistant
+                                                        </div>
+                                                        <div class="message-content">
+                                                            ${message.content}
+                                                        </div>
+                                                        <div class="message-meta">
+                                                            <span class="message-time" data-timestamp="${isoTimestamp}">${formattedTime}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>`;
+                                        } else {
+                                            // Admin message
+                                            historyHTML += `
+                                                <div class="message-container admin-message">
+                                                    ${message.admin_profile_image ?
+                                                        `<div class="profile-avatar">
+                                                            <img src="${message.admin_profile_image}" alt="${message.sender_name || 'Admin'}">
+                                                        </div>` :
+                                                        `<div class="avatar-initials">
+                                                            ${(message.sender_name || 'A').charAt(0).toUpperCase()}
+                                                        </div>`
+                                                    }
+                                                    <div class="message message-admin">
+                                                        <div class="message-sender">
+                                                            ${message.sender_name || 'Admin'}
+                                                        </div>
+                                                        <div class="message-content">
+                                                            ${message.content}
+                                                        </div>
+                                                        <div class="message-meta">
+                                                            <span class="message-time" data-timestamp="${isoTimestamp}">${formattedTime}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>`;
+                                        }
+                                    }
+                                });
+
+                                historyHTML += `</div>`;
+                            });
+                        } else {
+                            historyHTML = '<p>No previous chat history found for this visitor.</p>';
+                        }
+
+                        chatHistoryContent.innerHTML = historyHTML;
+
+                        // Scroll to the bottom of the chat history content
+                        setTimeout(function() {
+                            chatHistoryContent.scrollTop = chatHistoryContent.scrollHeight;
+                        }, 100);
+                    } else {
+                        chatHistoryContent.innerHTML = '<p>No chat history found for this visitor.</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching chat history:', error);
+                    chatHistoryContent.innerHTML = '<p class="text-danger small">Failed to load chat history.</p>';
+                });
+        });
+
+        // Handle visitor details updated event
+        socket.on('visitor_details_updated', function(data) {
+            if (data.room_id === roomId) {
+                console.log('Visitor details updated:', data);
+
+                // Update visitor name in the header
+                const visitorNameHeader = document.querySelector('.chat-header-info h3');
+                if (visitorNameHeader && data.name) {
+                    visitorNameHeader.textContent = `Chat with ${data.name}`;
+                }
+
+                // Update visitor info in all tables (main sidebar and mobile sidebar)
+                const visitorTables = document.querySelectorAll('.visitor-info-table');
+                visitorTables.forEach(table => {
+                    // Update name row if exists or create it
+                    if (data.name) {
+                        let nameRow = Array.from(table.querySelectorAll('th')).find(th => th.textContent === 'Name');
+                        if (!nameRow) {
+                            // Create name row if it doesn't exist
+                            const newRow = document.createElement('tr');
+                            newRow.innerHTML = `<th>Name</th><td>${data.name}</td>`;
+                            table.insertBefore(newRow, table.firstChild);
+                        } else {
+                            // Update existing row
+                            nameRow.closest('tr').querySelector('td').textContent = data.name;
+                        }
+                    }
+
+                    // Update email row if exists or create it
+                    if (data.email) {
+                        let emailRow = Array.from(table.querySelectorAll('th')).find(th => th.textContent === 'Email');
+                        if (!emailRow) {
+                            // Create email row if it doesn't exist
+                            const newRow = document.createElement('tr');
+                            newRow.innerHTML = `<th>Email</th><td>${data.email}</td>`;
+                            // Insert after name row if it exists, otherwise as first child
+                            const nameRow = Array.from(table.querySelectorAll('th')).find(th => th.textContent === 'Name');
+                            if (nameRow) {
+                                table.insertBefore(newRow, nameRow.closest('tr').nextSibling);
+                            } else {
+                                table.insertBefore(newRow, table.firstChild);
+                            }
+                        } else {
+                            // Update existing row
+                            emailRow.closest('tr').querySelector('td').textContent = data.email;
+                        }
+                    }
+                });
+
+                // Add a system message about the updated details
+                const updateMessage = data.name ?
+                    `Visitor updated their details: ${data.name}${data.email ? ' (' + data.email + ')' : ''}` :
+                    'Visitor updated their details';
+
+                displaySystemMessage(updateMessage, new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}));
+            }
+        });
+
+        // Handle visitor typing events
+        socket.on('visitor_typing', function(data) {
+            if (data.room_id === roomId) {
+                console.log('Received visitor typing event:', data);
+
+                // Cancel any pending hide operations
+                if (window.visitorTypingHideTimer) {
+                    clearTimeout(window.visitorTypingHideTimer);
+                    window.visitorTypingHideTimer = null;
+                }
+
+                // Update visitor name in typing indicator if available
+                const visitorTypingName = document.querySelector('.visitor-typing-name');
+                if (visitorTypingName && data.visitor_name) {
+                    visitorTypingName.textContent = data.visitor_name;
+                }
+
+                // Show the typing indicator
+                visitorTypingIndicator.style.cssText = 'display: flex !important;';
+
+                // Scroll to show the typing indicator
+                scrollToBottom();
+            }
+        });
+
+        socket.on('visitor_stopped_typing', function(data) {
+            if (data.room_id === roomId) {
+                console.log('Received visitor stopped typing event:', data);
+
+                // Hide the indicator after a short delay to prevent flickering
+                // if typing events come in rapid succession
+                if (window.visitorTypingHideTimer) {
+                    clearTimeout(window.visitorTypingHideTimer);
+                }
+
+                window.visitorTypingHideTimer = setTimeout(function() {
+                    // Hide the indicator
+                    visitorTypingIndicator.style.display = 'none';
+                    window.visitorTypingHideTimer = null;
+                }, 100);
+            }
+        });
+
+        // Function to scroll to the bottom of the chat
+        function scrollToBottom() {
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Function to display system messages
+        function displaySystemMessage(content, timestamp) {
+            const systemMessageHTML = `
+                <div class="system-message">
+                    <div class="system-message-content">
+                        ${content}
+                        <span class="system-message-time">${timestamp}</span>
+                    </div>
+                </div>
+            `;
+
+            // Append to messages container
+            messagesContainer.innerHTML += systemMessageHTML;
+
+            // Scroll to bottom
+            scrollToBottom();
+        }
+
+        // Scroll to bottom when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            scrollToBottom();
+        });
+
+        // Handle page unload/navigation to ensure admin_leave_room is sent
+        window.addEventListener('beforeunload', function() {
+            // Send admin_leave_room event when admin navigates away
+            socket.emit('admin_leave_room', {
+                room_id: roomId,
+                admin_id: adminId,
+                admin_name: adminName
+            });
+        });
+    });
+
+    // Function to load quick responses from API
+    function loadQuickResponses() {
+        fetch('/api/quick_responses')
+            .then(response => response.json())
+            .then(data => {
+                const quickResponseList = document.getElementById('quick-response-list');
+                const mobileQuickResponseList = document.getElementById('mobile-quick-response-list');
+
+                // Clear loading spinners
+                quickResponseList.innerHTML = '';
+                mobileQuickResponseList.innerHTML = '';
+
+                if (data.quick_responses && data.quick_responses.length > 0) {
+                    // Add responses to desktop sidebar
+                    data.quick_responses.forEach(response => {
+                        const button = document.createElement('button');
+                        button.className = 'quick-response-btn';
+                        button.setAttribute('data-id', response.id);
+                        button.setAttribute('data-message', response.content);
+                        button.textContent = response.title;
+                        button.addEventListener('click', function() {
+                            sendQuickResponse(response.id);
+                        });
+                        quickResponseList.appendChild(button);
+
+                        // Clone for mobile sidebar
+                        const mobileButton = button.cloneNode(true);
+                        mobileButton.className = 'quick-response-btn mobile-quick-response';
+                        mobileButton.setAttribute('data-message', response.content);
+                        mobileButton.addEventListener('click', function() {
+                            sendQuickResponse(response.id);
+                        });
+                        mobileQuickResponseList.appendChild(mobileButton);
+                    });
+                } else {
+                    // No responses found
+                    quickResponseList.innerHTML = '<p class="text-muted small">No quick responses found. <a href="/quick_responses" target="_blank">Create some</a>.</p>';
+                    mobileQuickResponseList.innerHTML = '<p class="text-muted small">No quick responses found.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading quick responses:', error);
+                document.getElementById('quick-response-list').innerHTML = '<p class="text-danger small">Error loading responses</p>';
+                document.getElementById('mobile-quick-response-list').innerHTML = '<p class="text-danger small">Error loading responses</p>';
+            });
+    }
+
+    // Function to send a quick response
+    function sendQuickResponse(responseId) {
+        const roomId = '{{ room.id }}';
+
+        fetch('/api/quick_responses/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                room_id: roomId,
+                response_id: responseId
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Message sent successfully, it will appear in the chat via websocket
+                console.log('Quick response sent successfully');
+            } else {
+                console.error('Failed to send quick response:', data.error);
+                alert('Failed to send quick response: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error sending quick response:', error);
+            alert('Error sending quick response. Please try again.');
+        });
+    }
+
+    // Add this to your existing JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle close button in chat history modal
+        document.getElementById('close-history-modal').addEventListener('click', function() {
+            document.getElementById('chat-history-modal').style.display = 'none';
+        });
+
+        // Close modal when clicking outside of it
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('chat-history-modal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Close modal with escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape" && document.getElementById('chat-history-modal').style.display === 'block') {
+                document.getElementById('chat-history-modal').style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

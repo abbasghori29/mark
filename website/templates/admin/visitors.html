@@ -1,0 +1,506 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Visitor Tracking{% endblock %}
+
+{% block header_title %}Visitor Tracking{% endblock %}
+
+{% block additional_css %}
+<style>
+    .visitor-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 5px;
+        text-align: center;
+    }
+    
+    .stat-card h3 {
+        font-size: 2rem;
+        color: var(--main-color);
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-card p {
+        color: var(--text-grey);
+        margin: 0;
+    }
+    
+    .visitor-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 5px;
+    }
+    
+    .visitor-info {
+        flex: 1;
+    }
+    
+    .visitor-id {
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+    }
+    
+    .visitor-details {
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+        color: var(--text-grey);
+    }
+    
+    .visitor-detail {
+        margin-right: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .visitor-detail i {
+        margin-right: 0.3rem;
+    }
+    
+    .visitor-actions {
+        display: flex;
+    }
+    
+    .visitor-actions button {
+        margin-left: 0.5rem;
+        background: var(--main-color);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+    
+    .visitor-actions button i {
+        margin-right: 0.5rem;
+    }
+    
+    .visitor-status {
+        display: flex;
+        align-items: center;
+        margin-right: 1.5rem;
+    }
+    
+    .visitor-status .status {
+        margin-right: 0.5rem;
+    }
+    
+    .live-indicator {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: rgba(46, 204, 113, 0.2);
+        color: #2ecc71;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        font-size: 75%;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 10px;
+        margin-left: 0.5rem;
+    }
+    
+    .badge-primary {
+        background-color: var(--main-color);
+        color: white;
+    }
+    
+    @media only screen and (max-width: 768px) {
+        .visitor-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .visitor-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .visitor-actions {
+            margin-top: 1rem;
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="visitor-stats">
+    <div class="stat-card">
+        <h3>{{ (visitors_with_chats|length + visitors_without_chats|length) }}</h3>
+        <p>Active Visitors</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ (visitors_with_chats|length + visitors_without_chats|length) }}</h3>
+        <p>Total Visitors Today</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ ((visitors_with_chats|length / (visitors_with_chats|length + visitors_without_chats|length)) * 100)|int if (visitors_with_chats|length + visitors_without_chats|length) > 0 else 0 }}%</h3>
+        <p>Chat Conversion Rate</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Active Visitors</h3>
+        <button id="refresh-visitors">
+            <span class="las la-sync"></span> Refresh
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="visitors-list">
+            {% for visitor_data in visitors_with_chats %}
+            <div class="visitor-row">
+                <div class="visitor-info">
+                    <div class="visitor-id">
+                        {% if visitor_data.visitor.name %}{{ visitor_data.visitor.name }}{% else %}Visitor ({{ visitor_data.visitor.ip_address }}){% endif %}
+                        <span class="live-indicator">In Chat</span>
+                    </div>
+                    <div class="visitor-details">
+                        {% if visitor_data.visitor.name or visitor_data.visitor.email %}
+                        <div class="visitor-detail">
+                            <span class="las la-user"></span>
+                            {% if visitor_data.visitor.name %}{{ visitor_data.visitor.name }}{% endif %}
+                            {% if visitor_data.visitor.name and visitor_data.visitor.email %} - {% endif %}
+                            {% if visitor_data.visitor.email %}{{ visitor_data.visitor.email }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="visitor-detail">
+                            <span class="las la-clock"></span>
+                            {{ format_time(visitor_data.visitor.last_seen) }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-globe"></span>
+                            {{ visitor_data.visitor.ip_address }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-desktop"></span>
+                            {{ visitor_data.visitor.user_agent|default('Unknown') }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-map-marker"></span>
+                            {{ visitor_data.visitor.country|default('Unknown') }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-file"></span>
+                            {{ visitor_data.visitor.current_page or '/' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="visitor-status">
+                    <span class="status online"></span>
+                    Online
+                </div>
+                <div class="visitor-actions">
+                    <a href="{{ url_for('admin.chat', room_id=visitor_data.room.id) }}">
+                        <button>
+                            <span class="las la-comment"></span>
+                            View Chat
+                        </button>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% for visitor_data in visitors_without_chats %}
+            <div class="visitor-row">
+                <div class="visitor-info">
+                    <div class="visitor-id">
+                        {% if visitor_data.visitor.name %}{{ visitor_data.visitor.name }}{% else %}Visitor ({{ visitor_data.visitor.ip_address }}){% endif %}
+                    </div>
+                    <div class="visitor-details">
+                        {% if visitor_data.visitor.name or visitor_data.visitor.email %}
+                        <div class="visitor-detail">
+                            <span class="las la-user"></span>
+                            {% if visitor_data.visitor.name %}{{ visitor_data.visitor.name }}{% endif %}
+                            {% if visitor_data.visitor.name and visitor_data.visitor.email %} - {% endif %}
+                            {% if visitor_data.visitor.email %}{{ visitor_data.visitor.email }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="visitor-detail">
+                            <span class="las la-clock"></span>
+                            {{ format_time(visitor_data.visitor.last_seen) }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-globe"></span>
+                            {{ visitor_data.visitor.ip_address }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-desktop"></span>
+                            {{ visitor_data.visitor.user_agent|default('Unknown') }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-map-marker"></span>
+                            {{ visitor_data.visitor.country|default('Unknown') }}
+                        </div>
+                        <div class="visitor-detail">
+                            <span class="las la-file"></span>
+                            {{ visitor_data.visitor.current_page or '/' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="visitor-status">
+                    <span class="status online"></span>
+                    Online
+                </div>
+                <div class="visitor-actions">
+                    <button class="initiate-chat" data-visitor-id="{{ visitor_data.visitor.visitor_id }}">
+                        <span class="las la-comment"></span>
+                        Initiate Chat
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if not visitors_with_chats and not visitors_without_chats %}
+            <div class="visitor-row">
+                <div class="visitor-info">
+                    <div class="visitor-id">No active visitors</div>
+                    <div class="visitor-details">
+                        <div class="visitor-detail">Check back later or refresh the page.</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h3>Recent Visitors</h3>
+        <a href="{{ url_for('admin.chat_history') }}">
+            <button>See All History</button>
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table width="100%">
+                <thead>
+                    <tr>
+                        <td>Visitor</td>
+                        <td>Name/Email</td>
+                        <td>Last Seen</td>
+                        <td>Time on Site</td>
+                        <td>Visit Count</td>
+                        <td>Location</td>
+                        <td>Status</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set all_visitors = visitors_with_chats + visitors_without_chats %}
+                    {% for visitor_data in all_visitors %}
+                    <tr>
+                        <td>{% if visitor_data.visitor.name %}{{ visitor_data.visitor.name }}{% else %}Visitor ({{ visitor_data.visitor.ip_address }}){% endif %}</td>
+                        <td>
+                            {% if visitor_data.visitor.name %}{{ visitor_data.visitor.name }}{% endif %}
+                            {% if visitor_data.visitor.name and visitor_data.visitor.email %}<br>{% endif %}
+                            {% if visitor_data.visitor.email %}{{ visitor_data.visitor.email }}{% endif %}
+                            {% if not visitor_data.visitor.name and not visitor_data.visitor.email %}Unknown{% endif %}
+                        </td>
+                        <td>{{ format_time(visitor_data.visitor.last_seen) }}</td>
+                        <td>{{ visitor_data.visitor.time_on_site }} seconds</td>
+                        <td>{{ visitor_data.visitor.visit_count }}</td>
+                        <td>{{ visitor_data.visitor.country or 'Unknown' }}</td>
+                        <td>
+                            <span class="status online"></span> Active
+                            {% if visitor_data.room %}
+                            <span class="badge badge-primary">In Chat</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No recent visitors found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Connect to Socket.IO with reconnection settings
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
+        
+        // Store current time format
+        let currentTimeFormat = '{{ time_format }}';
+        
+        // Track connection status
+        let isConnected = false;
+        
+        // Function to request notification permission
+        function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                console.log("This browser does not support desktop notification");
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+        
+        // Request notification permission when page loads
+        requestNotificationPermission();
+        
+        // Function to show browser notification
+        function showNotification(title, message) {
+            // Only show notification if the page is not visible (minimized/background)
+            if (document.visibilityState !== 'visible' && Notification.permission === "granted") {
+                const notification = new Notification(title, {
+                    body: message,
+                    icon: "{{ url_for('static', filename='images/chat-icon.png') }}"
+                });
+                
+                // Focus on window when notification is clicked
+                notification.onclick = function() {
+                    window.focus();
+                    notification.close();
+                };
+            }
+        }
+        
+        // Socket connection events
+        socket.on('connect', function() {
+            console.log('Connected to WebSocket server');
+            isConnected = true;
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from WebSocket server');
+            isConnected = false;
+        });
+        
+        socket.on('reconnect', function(attemptNumber) {
+            console.log('Reconnected to WebSocket server after ' + attemptNumber + ' attempts');
+            isConnected = true;
+        });
+        
+        // Listen for settings updates
+        socket.on('settings_updated', function(data) {
+            console.log('Settings updated:', data);
+            if (data.time_format) {
+                currentTimeFormat = data.time_format;
+                // Update all timestamps with the new format
+                updateAllTimestamps();
+            }
+        });
+        
+        // Function to format time based on current time format
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return timestamp; // Return as is if invalid date
+            
+            if (currentTimeFormat === '12h') {
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+            } else {
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: false });
+            }
+        }
+        
+        // Function to update all timestamps on the page
+        function updateAllTimestamps() {
+            document.querySelectorAll('.visitor-detail span.las.la-clock').forEach(element => {
+                const timeElement = element.nextSibling;
+                if (timeElement && timeElement.nodeType === Node.TEXT_NODE) {
+                    const originalTime = timeElement.textContent.trim();
+                    // Try to parse the time
+                    try {
+                        const date = new Date(originalTime);
+                        if (!isNaN(date.getTime())) {
+                            timeElement.textContent = ' ' + formatTime(date);
+                        }
+                    } catch (e) {
+                        console.error('Error formatting time:', e);
+                    }
+                }
+            });
+        }
+        
+        const refreshBtn = document.getElementById('refresh-visitors');
+        const initiateChatBtns = document.querySelectorAll('.initiate-chat');
+        
+        // Handle refresh button
+        refreshBtn.addEventListener('click', function() {
+            window.location.reload();
+        });
+        
+        // Handle initiate chat buttons
+        initiateChatBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const visitorId = this.getAttribute('data-visitor-id');
+                this.disabled = true;
+                this.innerHTML = '<span class="las la-spinner la-spin"></span> Initiating...';
+                
+                fetch('/admin/api/initiate_chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        visitor_id: visitorId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/admin/chat/' + data.room_id;
+                    } else {
+                        alert('Failed to initiate chat: ' + (data.error || 'Unknown error'));
+                        this.disabled = false;
+                        this.innerHTML = '<span class="las la-comment"></span> Initiate Chat';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while initiating the chat. Please try again.');
+                    this.disabled = false;
+                    this.innerHTML = '<span class="las la-comment"></span> Initiate Chat';
+                });
+            });
+        });
+        
+        // Auto-refresh every 30 seconds
+        setInterval(function() {
+            window.location.reload();
+        }, 30000);
+        
+        // Listen for visitor updates via WebSocket
+        socket.on('visitor_update', function(data) {
+            // Just refresh the page for simplicity
+            location.reload();
+        });
+    });
+</script>
+{% endblock %} 
