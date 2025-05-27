@@ -901,9 +901,19 @@
             localStorage.setItem('browser_uuid', browserUUID);
         }
 
-        // Store visitor_id and room_id in localStorage for persistence
+        // Store visitor_id in localStorage for persistence across sessions
         localStorage.setItem('visitor_id', visitorId);
-        localStorage.setItem('room_id', roomId);
+
+        // SESSION-BASED ROOM ISOLATION: Store room_id in sessionStorage with session-specific key
+        // Generate session ID if not exists
+        let sessionId = sessionStorage.getItem('session_id');
+        if (!sessionId) {
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('session_id', sessionId);
+        }
+
+        const sessionStorageKey = 'session_room_id_' + sessionId;
+        sessionStorage.setItem(sessionStorageKey, roomId);
 
         // Get timezone and time format settings
         let timezone = "{{ timezone }}"; // Site default timezone
@@ -1248,7 +1258,7 @@
                 room_id: roomId,
                 browser_uuid: browserUUID,
                 stored_visitor_id: localStorage.getItem('visitor_id'),
-                stored_room_id: localStorage.getItem('room_id')
+                stored_room_id: sessionStorage.getItem(sessionStorageKey)
             });
 
             // Check if we need to update user details display
@@ -1275,7 +1285,7 @@
                 room_id: roomId,
                 browser_uuid: browserUUID,
                 stored_visitor_id: localStorage.getItem('visitor_id'),
-                stored_room_id: localStorage.getItem('room_id')
+                stored_room_id: sessionStorage.getItem(sessionStorageKey)
             });
         });
 
@@ -1435,12 +1445,16 @@
             return re.test(String(email).toLowerCase());
         }
 
-        // Join the room
+        // SESSION-BASED ROOM ISOLATION: Use session-aware storage keys
+        // Use the same session ID and storage key as defined above
+        const joinRoomStorageKey = 'session_room_id_' + sessionId;
+
+        // Join the room with session-based isolation
         socket.emit('join_room', {
             room_id: roomId,
             browser_uuid: browserUUID,
             stored_visitor_id: localStorage.getItem('visitor_id'),
-            stored_room_id: localStorage.getItem('room_id')
+            stored_room_id: sessionStorage.getItem(joinRoomStorageKey)
         });
 
         // Tell parent window our room ID, chat mode, and visitor details
@@ -2087,12 +2101,21 @@
             });
         }
 
-        // Add a function to check visitor status with the server
+        // SESSION-BASED CHAT ISOLATION: Updated visitor status check
         function checkVisitorStatus() {
-            // Get stored IDs from localStorage
+            // SESSION-BASED STORAGE: Use session-aware storage
             const storedVisitorId = localStorage.getItem('visitor_id');
-            const storedRoomId = localStorage.getItem('room_id');
             const browserUUID = localStorage.getItem('browser_uuid');
+
+            // Generate session ID if not exists
+            let sessionId = sessionStorage.getItem('session_id');
+            if (!sessionId) {
+                sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                sessionStorage.setItem('session_id', sessionId);
+            }
+
+            const sessionStorageKey = 'session_room_id_' + sessionId;
+            const storedRoomId = sessionStorage.getItem(sessionStorageKey);
 
             // Send request to check visitor status
             fetch('/api/check_visitor', {
@@ -2110,13 +2133,32 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Store the visitor ID and room ID
+                    // Store the visitor ID in localStorage (persists across sessions)
                     localStorage.setItem('visitor_id', data.visitor_id);
-                    localStorage.setItem('room_id', data.room_id);
 
-                    // If the room ID is different from the current one, redirect
+                    // Store room ID in session-specific storage
+                    sessionStorage.setItem(sessionStorageKey, data.room_id);
+
+                    // SESSION-BASED ISOLATION: Only redirect if we're in the wrong room for this session
+                    // AND the room actually belongs to a different session
                     if (data.room_id !== "{{ room.id }}") {
-                        window.location.href = '/chat_iframe/' + data.room_id;
+                        console.log('Room ID mismatch detected:', {
+                            current: "{{ room.id }}",
+                            expected: data.room_id,
+                            session: sessionId
+                        });
+
+                        // Only redirect if this is a legitimate room change for this session
+                        // Avoid infinite redirects by checking if we've already tried this
+                        const redirectKey = 'redirect_attempted_' + sessionId;
+                        if (!sessionStorage.getItem(redirectKey)) {
+                            sessionStorage.setItem(redirectKey, 'true');
+                            window.location.href = '/chat_iframe/' + data.room_id;
+                        }
+                    } else {
+                        // Clear any redirect flags if we're in the correct room
+                        const redirectKey = 'redirect_attempted_' + sessionId;
+                        sessionStorage.removeItem(redirectKey);
                     }
                 }
             })

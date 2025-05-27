@@ -745,6 +745,86 @@
             }
         });
 
+        // AUTO-CLEANUP: Handle visitor auto-removed event (after 10 minutes of inactivity)
+        socket.on('visitor_auto_removed', function(data) {
+            console.log('Visitor auto-removed due to inactivity:', data);
+
+            // Find the row for this visitor
+            const visitorRow = document.querySelector(`tr[data-room-id="${data.room_id}"]`);
+            if (visitorRow) {
+                // Add visual indication that this was auto-removed
+                visitorRow.style.backgroundColor = '#fff3cd';
+                visitorRow.style.border = '1px solid #ffeaa7';
+
+                // Add a temporary message to show why it was removed
+                const statusCell = visitorRow.querySelector('td:nth-child(5)');
+                if (statusCell) {
+                    statusCell.innerHTML = `
+                        <span class="status offline"></span>
+                        <span style="color: #856404; font-size: 12px;">
+                            Auto-removed (${data.inactive_minutes}min inactive)
+                        </span>
+                    `;
+                }
+
+                // Remove the row after 3 seconds with fade effect
+                setTimeout(() => {
+                    visitorRow.style.transition = 'opacity 0.5s ease-out';
+                    visitorRow.style.opacity = '0';
+
+                    setTimeout(() => {
+                        visitorRow.remove();
+
+                        // Check if table is now empty
+                        const tableBody = document.querySelector('.table-responsive tbody');
+                        if (tableBody && tableBody.children.length === 0) {
+                            // Add the "No active chats" row
+                            const noChatsRow = document.createElement('tr');
+                            noChatsRow.innerHTML = '<td colspan="6" class="text-center">No active chats at the moment.</td>';
+                            tableBody.appendChild(noChatsRow);
+                        }
+                    }, 500); // Wait for fade animation
+                }, 3000); // Show for 3 seconds
+            }
+
+            // Show a subtle notification about the auto-removal
+            if (document.visibilityState === 'visible') {
+                // Only show if admin is actively viewing the dashboard
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background-color: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    color: #856404;
+                    padding: 12px 16px;
+                    border-radius: 6px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    z-index: 1000;
+                    font-size: 14px;
+                    max-width: 300px;
+                    transition: opacity 0.3s ease-out;
+                `;
+                notification.innerHTML = `
+                    <strong>Chat Auto-Removed</strong><br>
+                    Visitor was inactive for ${data.inactive_minutes} minutes
+                `;
+
+                document.body.appendChild(notification);
+
+                // Remove notification after 5 seconds
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 300);
+                }, 5000);
+            }
+        });
+
         // Handle admin joined event
         socket.on('admin_joined_chat', function(data) {
             console.log('Admin joined chat:', data);

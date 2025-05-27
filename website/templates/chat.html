@@ -695,12 +695,22 @@
         console.log('Connected to WebSocket server');
         isConnected = true;
 
+        // SESSION-BASED ROOM ISOLATION: Use session-aware storage
+        // Generate session ID if not exists
+        let sessionId = sessionStorage.getItem('session_id');
+        if (!sessionId) {
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('session_id', sessionId);
+        }
+
+        const sessionStorageKey = 'session_room_id_' + sessionId;
+
         // Rejoin room if reconnecting after disconnect
         socket.emit('join_room', {
             room_id: roomId,
             browser_uuid: browserUUID,
             stored_visitor_id: localStorage.getItem('visitor_id'),
-            stored_room_id: localStorage.getItem('room_id')
+            stored_room_id: sessionStorage.getItem(sessionStorageKey)
         });
     });
 

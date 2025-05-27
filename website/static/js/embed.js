@@ -31,11 +31,11 @@
         container.style.transition = 'all 0.3s ease';
         container.style.opacity = '0';
         container.style.transform = 'translateY(20px)';
-        
+
         // Start with just the button visible
         container.style.width = '60px';
         container.style.height = '60px';
-        
+
         return container;
     }
 
@@ -56,14 +56,14 @@
         button.style[config.position] = '0';
         button.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
         button.style.zIndex = '10000';
-        
+
         // Chat icon
         button.innerHTML = `
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white"/>
             </svg>
         `;
-        
+
         return button;
     }
 
@@ -79,7 +79,7 @@
         chatWindow.style.borderRadius = '16px';
         chatWindow.style.overflow = 'hidden';
         chatWindow.style.transition = 'all 0.3s ease';
-        
+
         // Chat header
         const header = document.createElement('div');
         header.style.padding = '15px';
@@ -89,12 +89,12 @@
         header.style.display = 'flex';
         header.style.justifyContent = 'space-between';
         header.style.alignItems = 'center';
-        
+
         // Company name/logo
         const companyInfo = document.createElement('div');
         companyInfo.style.display = 'flex';
         companyInfo.style.alignItems = 'center';
-        
+
         if (config.logoUrl) {
             const logo = document.createElement('img');
             logo.src = config.logoUrl;
@@ -102,14 +102,14 @@
             logo.style.marginRight = '8px';
             companyInfo.appendChild(logo);
         }
-        
+
         const companyName = document.createElement('div');
         companyName.textContent = config.companyName;
         companyName.style.fontWeight = 'bold';
         companyInfo.appendChild(companyName);
-        
+
         header.appendChild(companyInfo);
-        
+
         // Minimize button
         const minimizeBtn = document.createElement('div');
         minimizeBtn.id = 'chat-widget-minimize';
@@ -120,7 +120,7 @@
             </svg>
         `;
         header.appendChild(minimizeBtn);
-        
+
         // Chat iframe
         const iframe = document.createElement('iframe');
         iframe.id = 'chat-iframe';
@@ -128,10 +128,10 @@
         iframe.style.height = '100%';
         iframe.style.border = 'none';
         iframe.style.flexGrow = '1';
-        
+
         chatWindow.appendChild(header);
         chatWindow.appendChild(iframe);
-        
+
         return chatWindow;
     }
 
@@ -141,22 +141,22 @@
         const container = createWidgetContainer();
         const chatButton = createChatButton();
         const chatWindow = createChatWindow();
-        
+
         // Add elements to DOM
         container.appendChild(chatButton);
         container.appendChild(chatWindow);
         document.body.appendChild(container);
-        
+
         // Show container with animation
         setTimeout(() => {
             container.style.opacity = '1';
             container.style.transform = 'translateY(0)';
         }, 100);
-        
+
         // Track state
         let isOpen = false;
         let isMinimized = false;
-        
+
         // Toggle chat window
         chatButton.addEventListener('click', () => {
             if (!isOpen || isMinimized) {
@@ -165,17 +165,17 @@
                 closeChat();
             }
         });
-        
+
         // Minimize chat window
         document.getElementById('chat-widget-minimize').addEventListener('click', (e) => {
             e.stopPropagation();
             minimizeChat();
         });
-        
+
         // Open chat function
         function openChat() {
             const iframe = document.getElementById('chat-iframe');
-            
+
             // Load iframe if not already loaded
             if (iframe.src === '' || iframe.src === 'about:blank') {
                 // Generate a visitor ID if not already stored
@@ -184,14 +184,25 @@
                     visitorId = generateUUID();
                     localStorage.setItem('chat_visitor_id', visitorId);
                 }
-                
+
                 // Get browser UUID
                 let browserUUID = localStorage.getItem('browserUUID');
                 if (!browserUUID) {
                     browserUUID = generateUUID();
                     localStorage.setItem('browserUUID', browserUUID);
                 }
-                
+
+                // SESSION-BASED ROOM ISOLATION: Generate session ID for this browser session
+                let sessionId = sessionStorage.getItem('session_id');
+                if (!sessionId) {
+                    sessionId = generateUUID();
+                    sessionStorage.setItem('session_id', sessionId);
+                }
+
+                // Get stored room ID for this session
+                const sessionStorageKey = 'session_room_id_' + sessionId;
+                const storedRoomId = sessionStorage.getItem(sessionStorageKey);
+
                 // Check if we need to create a new chat room
                 fetch(`${config.serverUrl}/api/check_visitor`, {
                     method: 'POST',
@@ -199,14 +210,17 @@
                         'Content-Type': 'application/json',
                         'X-Browser-UUID': browserUUID
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         visitor_id: visitorId,
-                        browser_uuid: browserUUID
+                        browser_uuid: browserUUID,
+                        stored_room_id: storedRoomId
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.room_id) {
+                        // Store room ID for this session
+                        sessionStorage.setItem(sessionStorageKey, data.room_id);
                         iframe.src = `${config.serverUrl}/chat_iframe/${data.room_id}`;
                     }
                 })
@@ -214,7 +228,7 @@
                     console.error('Error checking visitor:', error);
                 });
             }
-            
+
             // Show chat window
             container.style.width = '350px';
             container.style.height = '500px';
@@ -222,7 +236,7 @@
             isOpen = true;
             isMinimized = false;
         }
-        
+
         // Close chat function
         function closeChat() {
             container.style.width = '60px';
@@ -230,7 +244,7 @@
             chatWindow.style.display = 'none';
             isOpen = false;
         }
-        
+
         // Minimize chat function
         function minimizeChat() {
             container.style.width = '60px';
@@ -238,7 +252,7 @@
             chatWindow.style.display = 'none';
             isMinimized = true;
         }
-        
+
         // Generate UUID for visitor tracking
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -247,7 +261,7 @@
             });
         }
     }
-    
+
     // Initialize when DOM is loaded
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initWidget);

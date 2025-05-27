@@ -19,6 +19,7 @@ class Room(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     visitor_id = db.Column(db.String(36), nullable=False)  # Store visitor ID
     visitor_ip = db.Column(db.String(50), nullable=True)   # Store visitor IP address
+    session_id = db.Column(db.String(128), nullable=True)  # Store Flask session ID for session-based isolation
     messages = db.relationship('Message', backref='room', lazy=True)
     admins = db.relationship('Admin', secondary=admin_rooms_association, backref='assigned_rooms')
     has_admin = db.Column(db.Boolean, default=False)  # Indicates if an admin is currently assigned
@@ -71,7 +72,7 @@ class Visitor(db.Model):
     city = db.Column(db.String(50), nullable=True)
     browser_uuid = db.Column(db.String(36), nullable=True)  # Store client-side UUID from localStorage
     session_id = db.Column(db.String(128), nullable=True)  # Store server-side session ID
-    
+
 class BusinessHours(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     day_of_week = db.Column(db.Integer, nullable=False)  # 0-6 for Monday-Sunday
@@ -83,12 +84,12 @@ class SiteSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=True)
-    
+
     @classmethod
     def get_setting(cls, key, default=None):
         setting = cls.query.filter_by(key=key).first()
         return setting.value if setting else default
-    
+
     @classmethod
     def set_setting(cls, key, value):
         setting = cls.query.filter_by(key=key).first()
@@ -103,7 +104,7 @@ class SiteSettings(db.Model):
 class TimeFormat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     format = db.Column(db.String(10), default='24h')  # '12h' or '24h'
-    
+
     @classmethod
     def get_format(cls):
         format_setting = cls.query.first()
@@ -112,12 +113,12 @@ class TimeFormat(db.Model):
             db.session.add(format_setting)
             db.session.commit()
         return format_setting.format
-    
+
     @classmethod
     def set_format(cls, format_value):
         if format_value not in ['12h', '24h']:
             raise ValueError("Format must be either '12h' or '24h'")
-            
+
         format_setting = cls.query.first()
         if format_setting:
             format_setting.format = format_value
@@ -134,7 +135,7 @@ class QuickResponse(db.Model):
     admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id': self.id,

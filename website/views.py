@@ -23,6 +23,8 @@ import string
 import logging
 from urllib.parse import urlparse
 import functools
+import threading
+import time as time_module
 from .utils import format_time, format_time_for_timezone, get_current_time_in_timezone
 
 # Configure profanity filter to use default wordlist but not censor everything
@@ -36,6 +38,112 @@ active_connections = {}
 # Global dictionary to track active admin presence in rooms
 # Format: {room_id: {admin_id: sid}}
 active_admin_rooms = {}
+
+# AUTO-CLEANUP: Configuration for automatic chat removal
+INACTIVITY_TIMEOUT_MINUTES = 10  # Remove chat after 10 minutes of inactivity
+CLEANUP_CHECK_INTERVAL_SECONDS = 60  # Check every minute
+
+# Flag to control the cleanup thread
+cleanup_thread_running = False
+
+def auto_cleanup_inactive_chats():
+    """
+    Background thread function to automatically remove inactive chats after 10 minutes.
+    Runs every minute to check for inactive users.
+    """
+    global cleanup_thread_running
+    cleanup_thread_running = True
+
+    print("🧹 Auto-cleanup thread started - checking for inactive chats every minute")
+
+    while cleanup_thread_running:
+        try:
+            current_time = datetime.now()
+            inactive_visitors = []
+
+            # Check each active connection for inactivity
+            for visitor_id, data in list(active_connections.items()):
+                last_inactive_time = data.get('last_inactive')
+                is_active = data.get('active', True)
+                room_id = data.get('room_id')
+
+                # Only check visitors who are marked as inactive and have a last_inactive timestamp
+                if not is_active and last_inactive_time and room_id:
+                    # Calculate how long they've been inactive
+                    inactive_duration = current_time - last_inactive_time
+                    inactive_minutes = inactive_duration.total_seconds() / 60
+
+                    print(f"🕐 Visitor {visitor_id} inactive for {inactive_minutes:.1f} minutes")
+
+                    # If inactive for more than 10 minutes, mark for removal
+                    if inactive_minutes >= INACTIVITY_TIMEOUT_MINUTES:
+                        inactive_visitors.append({
+                            'visitor_id': visitor_id,
+                            'room_id': room_id,
+                            'inactive_minutes': inactive_minutes
+                        })
+
+            # Remove inactive visitors
+            for visitor_info in inactive_visitors:
+                visitor_id = visitor_info['visitor_id']
+                room_id = visitor_info['room_id']
+                inactive_minutes = visitor_info['inactive_minutes']
+
+                print(f"🗑️  Auto-removing inactive chat: Visitor {visitor_id} (inactive for {inactive_minutes:.1f} minutes)")
+
+                # Remove from active_connections
+                if visitor_id in active_connections:
+                    del active_connections[visitor_id]
+
+                # Mark room as inactive in database
+                try:
+                    room = Room.query.get(room_id)
+                    if room:
+                        room.is_active = False
+                        room.last_activity = current_time
+                        db.session.commit()
+                        print(f"✅ Room {room_id} marked as inactive in database")
+                except Exception as e:
+                    print(f"❌ Error updating room {room_id} in database: {e}")
+                    db.session.rollback()
+
+                # Notify admins about auto-removal
+                try:
+                    socketio.emit('visitor_auto_removed', {
+                        'visitor_id': visitor_id,
+                        'room_id': room_id,
+                        'reason': 'inactivity_timeout',
+                        'inactive_minutes': round(inactive_minutes, 1),
+                        'timestamp': current_time.strftime('%H:%M:%S')
+                    }, namespace='/')
+
+                    print(f"📢 Notified admins about auto-removal of visitor {visitor_id}")
+                except Exception as e:
+                    print(f"❌ Error notifying admins about auto-removal: {e}")
+
+            if inactive_visitors:
+                print(f"🧹 Auto-cleanup completed: Removed {len(inactive_visitors)} inactive chats")
+
+        except Exception as e:
+            print(f"❌ Error in auto-cleanup thread: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Wait for the next check interval
+        time_module.sleep(CLEANUP_CHECK_INTERVAL_SECONDS)
+
+    print("🛑 Auto-cleanup thread stopped")
+
+def start_auto_cleanup_thread():
+    """Start the auto-cleanup background thread if not already running"""
+    global cleanup_thread_running
+
+    if not cleanup_thread_running:
+        cleanup_thread = threading.Thread(target=auto_cleanup_inactive_chats, daemon=True)
+        cleanup_thread.start()
+        print("🚀 Auto-cleanup thread started")
+    else:
+        print("ℹ️  Auto-cleanup thread already running")
 
 # Define OAuth scopes
 SCOPES = ['https://www.googleapis.com/auth/calendar']
@@ -119,6 +227,15 @@ def add_hsts_header(response):
 def handle_connect():
     print(f'Client connected: {request.sid}')
 
+    # AUTO-CLEANUP: Start the auto-cleanup thread when first client connects
+    try:
+        start_auto_cleanup_thread()
+        print(f"Auto-cleanup thread startup attempted for client: {request.sid}")
+    except Exception as e:
+        print(f"Error starting auto-cleanup thread: {e}")
+        import traceback
+        traceback.print_exc()
+
 @socketio.on('disconnect')
 def handle_disconnect():
     print(f'Client disconnected: {request.sid}')
@@ -183,23 +300,39 @@ def handle_disconnect():
 
 @socketio.on('join_room')
 def handle_join_room(data):
-    """Handle a user joining a room"""
+    """Handle a user joining a room with session-based isolation"""
     room_id = data.get('room_id')
     browser_uuid = data.get('browser_uuid')
     stored_visitor_id = data.get('stored_visitor_id')
     stored_room_id = data.get('stored_room_id')
 
-    # If we have a stored room ID that's different from the current one,
-    # and the stored room still exists and is active, use that instead
+    # SESSION-BASED CHAT ISOLATION: Use browser UUID as primary session identifier
+    if browser_uuid:
+        current_session_id = browser_uuid  # Use browser UUID as session ID
+    else:
+        # Fallback: generate a unique session ID for this request
+        current_session_id = str(uuid.uuid4())
+
+    print(f"SocketIO join_room - Session ID: {current_session_id}")
+
+    # SESSION-BASED ROOM VERIFICATION: Verify the room belongs to this session
+    if room_id:
+        room = Room.query.get(room_id)
+        if room and room.session_id != current_session_id:
+            print(f"Room {room_id} doesn't belong to session {current_session_id}, denying access")
+            return
+
+    # If we have a stored room ID, verify it belongs to this session
     if stored_room_id and stored_room_id != room_id:
         stored_room = Room.query.get(stored_room_id)
-        if stored_room and stored_room.is_active:
+        if (stored_room and stored_room.is_active and
+            stored_room.session_id == current_session_id):
             room_id = stored_room_id
-            print(f"Using stored room ID: {room_id} instead of {data.get('room_id')}")
+            print(f"Using stored room ID: {room_id} for session: {current_session_id}")
 
     if room_id:
         join_room(room_id)
-        print(f'Client {request.sid} joined room: {room_id}')
+        print(f'Client {request.sid} joined room: {room_id} (session: {current_session_id})')
 
         # Update visitor record with browser UUID if available
         if browser_uuid:
@@ -965,10 +1098,18 @@ def index():
     visitor_ip = request.remote_addr
     visitor_id = session['visitor_id']
     user_agent = request.headers.get('User-Agent')
-    session_id = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
 
     # Get browser UUID from headers if available
     browser_uuid = request.headers.get('X-Browser-UUID')
+
+    # SESSION-BASED CHAT ISOLATION: Use browser UUID as primary session identifier
+    if browser_uuid:
+        session_id = browser_uuid  # Use browser UUID as session ID
+    else:
+        # Fallback: generate a unique session ID for this request
+        session_id = str(uuid.uuid4())
+
+    print(f"Index route - Session ID: {session_id}")
 
     # Update or create visitor record
     visitor = None
@@ -1029,14 +1170,19 @@ def index():
         if existing_room and existing_room.visitor_id != visitor_id:
             existing_room = None
 
-    # If no room found by stored ID, look for any active room for this visitor
+    # SESSION-BASED ROOM ISOLATION: Look for room by session ID first
     if not existing_room:
-        existing_room = Room.query.filter_by(visitor_id=visitor_id, is_active=True).first()
+        existing_room = Room.query.filter_by(
+            visitor_id=visitor_id,
+            session_id=session_id,
+            is_active=True
+        ).first()
 
     if not existing_room:
         new_room = Room(
             visitor_id=visitor_id,
-            visitor_ip=visitor_ip
+            visitor_ip=visitor_ip,
+            session_id=session_id
         )
         db.session.add(new_room)
         db.session.commit()
@@ -1045,6 +1191,7 @@ def index():
         socketio.emit('new_chat', {
             'room_id': new_room.id,
             'visitor_ip': visitor_ip,
+            'session_id': session_id,
             'timestamp': datetime.utcnow().isoformat()
         }, namespace='/')
 
@@ -1130,7 +1277,7 @@ def chat(room_id):
                 ip_address=request.remote_addr,
                 user_agent=request.headers.get('User-Agent'),
                 browser_uuid=browser_uuid,
-                session_id=session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+                session_id=session.get('session_id', str(uuid.uuid4()))
             )
             db.session.add(visitor)
             db.session.commit()
@@ -1360,7 +1507,7 @@ def chat_iframe(room_id):
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent'),
             browser_uuid=browser_uuid,
-            session_id=session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+            session_id=session.get('session_id', str(uuid.uuid4()))
         )
         db.session.add(visitor)
         db.session.commit()
@@ -1714,7 +1861,16 @@ def check_visitor():
     # Get the visitor's IP address and session ID
     visitor_ip = request.remote_addr
     user_agent = request.headers.get('User-Agent')
-    session_id = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+
+    # SESSION-BASED CHAT ISOLATION: Use browser UUID as primary session identifier
+    # This ensures each browser tab/window gets its own chat room
+    if browser_uuid:
+        current_session_id = browser_uuid  # Use browser UUID as session ID
+    else:
+        # Fallback: generate a unique session ID for this request
+        current_session_id = str(uuid.uuid4())
+
+    print(f"Session ID for this request: {current_session_id}")
 
     visitor = None
 
@@ -1770,7 +1926,7 @@ def check_visitor():
                 user_agent=user_agent,
                 browser_uuid=browser_uuid,
                 email=visitor_email,
-                session_id=session_id
+                session_id=current_session_id
             )
             db.session.add(visitor)
             db.session.commit()
@@ -1781,6 +1937,7 @@ def check_visitor():
         visitor.visit_count += 1
         visitor.ip_address = visitor_ip
         visitor.user_agent = user_agent
+        visitor.session_id = current_session_id
 
         # Update browser_uuid if it's available and not set
         if browser_uuid and not visitor.browser_uuid:
@@ -1793,29 +1950,28 @@ def check_visitor():
 
         db.session.commit()
 
-    # First check if we have a stored room ID that's still active
-    if stored_room_id:
-        existing_room = Room.query.get(stored_room_id)
-        if existing_room and existing_room.is_active:
-            # Make sure this room belongs to our visitor
-            if existing_room.visitor_id == visitor.visitor_id:
-                print(f"Using stored room: {existing_room.id}")
-                return jsonify({
-                    'success': True,
-                    'visitor_id': visitor.visitor_id,
-                    'room_id': existing_room.id
-                })
-            else:
-                print(f"Stored room {stored_room_id} doesn't belong to visitor {visitor.visitor_id}")
+    # SESSION-BASED ROOM ISOLATION: Look for room by session ID first
+    # This ensures each browser session gets its own chat room
+    existing_room = Room.query.filter_by(
+        session_id=current_session_id,
+        is_active=True
+    ).first()
 
-    # Check if the visitor has an active room
-    existing_room = Room.query.filter_by(visitor_id=visitor.visitor_id, is_active=True).first()
+    # If no room found by session ID, check stored room ID but verify it belongs to this session
+    if not existing_room and stored_room_id:
+        stored_room = Room.query.get(stored_room_id)
+        if (stored_room and stored_room.is_active and
+            stored_room.visitor_id == visitor.visitor_id and
+            stored_room.session_id == current_session_id):
+            existing_room = stored_room
+            print(f"Using stored room with session verification: {existing_room.id}")
 
     if not existing_room:
-        # Create a new room for the visitor
+        # Create a new room for this specific session
         new_room = Room(
             visitor_id=visitor.visitor_id,
-            visitor_ip=visitor_ip
+            visitor_ip=visitor_ip,
+            session_id=current_session_id
         )
         db.session.add(new_room)
         db.session.commit()
@@ -1824,19 +1980,21 @@ def check_visitor():
         socketio.emit('new_chat', {
             'room_id': new_room.id,
             'visitor_ip': visitor_ip,
+            'session_id': current_session_id,
             'timestamp': datetime.utcnow().isoformat()
         }, namespace='/')
 
         room_id = new_room.id
-        print(f"Created new room: {room_id}")
+        print(f"Created new session-based room: {room_id} for session: {current_session_id}")
     else:
         room_id = existing_room.id
-        print(f"Using existing room: {room_id}")
+        print(f"Using existing session-based room: {room_id} for session: {current_session_id}")
 
     return jsonify({
         'success': True,
         'visitor_id': visitor.visitor_id,
-        'room_id': room_id
+        'room_id': room_id,
+        'session_id': current_session_id
     })
 
 @socketio.on('visitor_inactive')
