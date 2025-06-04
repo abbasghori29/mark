@@ -1949,7 +1949,8 @@ def send_quick_response():
         is_from_visitor=False,
         sender_id=current_user.id,
         sender_name=current_user.name,
-        is_read=True
+        is_read=True,
+        admin_profile_image=current_user.profile_image
     )
     db.session.add(message)
     db.session.commit()
@@ -2080,7 +2081,8 @@ def send_quick_response_v2():
             is_from_visitor=False,
             sender_id=current_user.id,
             sender_name=current_user.name,
-            is_read=True
+            is_read=True,
+            admin_profile_image=current_user.profile_image
         )
         db.session.add(message)
         db.session.commit()
