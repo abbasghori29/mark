@@ -714,8 +714,9 @@ def widget_settings():
         return redirect(url_for('auth.admin_login'))
 
     # Get current settings
-    primary_color = SiteSettings.get_setting('primary_color', '#4a6cf7')
-    company_name = SiteSettings.get_setting('company_name', 'Your Company Name')
+    primary_color = SiteSettings.get_setting('primary_color', '#4674C6')
+    widget_icon_color = SiteSettings.get_setting('widget_icon_color', '#4674C6')
+    company_name = SiteSettings.get_setting('company_name', 'Customer Support')
     welcome_message = SiteSettings.get_setting('welcome_message', 'Welcome to our customer support chat. How can we help you today?')
     logo_url = SiteSettings.get_setting('logo_url', '')
     widget_position = SiteSettings.get_setting('widget_position', 'right')
@@ -725,6 +726,7 @@ def widget_settings():
         try:
             # Update settings
             primary_color = request.form.get('primary_color', primary_color)
+            widget_icon_color = request.form.get('widget_icon_color', widget_icon_color)
             company_name = request.form.get('company_name', company_name)
             welcome_message = request.form.get('welcome_message', welcome_message)
             logo_url = request.form.get('logo_url', logo_url)
@@ -732,6 +734,7 @@ def widget_settings():
 
             # Save settings
             SiteSettings.set_setting('primary_color', primary_color)
+            SiteSettings.set_setting('widget_icon_color', widget_icon_color)
             SiteSettings.set_setting('company_name', company_name)
             SiteSettings.set_setting('welcome_message', welcome_message)
             SiteSettings.set_setting('logo_url', logo_url)
@@ -768,6 +771,7 @@ def widget_settings():
     return render_template('admin/widget_settings.html',
                           admin=current_user,
                           primary_color=primary_color,
+                          widget_icon_color=widget_icon_color,
                           company_name=company_name,
                           welcome_message=welcome_message,
                           logo_url=logo_url,
@@ -1267,6 +1271,77 @@ def api_knowledge_base_upload():
 
     except Exception as e:
         current_app.logger.error(f"Error in knowledge base upload: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/api/knowledge_base/upload_csv', methods=['POST'])
+@admin_required
+def api_knowledge_base_upload_csv():
+    """API for uploading CSV file to the AI knowledge base"""
+    try:
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+        # Check file extension
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({'success': False, 'error': 'Only CSV files are allowed'}), 400
+
+        # Get upload mode (add or rebuild)
+        upload_mode = request.form.get('mode', 'add')  # 'add' or 'rebuild'
+
+        # Create uploads directory if it doesn't exist
+        upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'csv')
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Save the uploaded file
+        filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{timestamp}_{filename}"
+        file_path = os.path.join(upload_dir, filename)
+        file.save(file_path)
+
+        try:
+            # Process the CSV file using AIService
+            from website.ai_service import ai_service
+
+            source_name = f"csv_upload_{filename}"
+
+            if upload_mode == 'rebuild':
+                chunk_count, message = ai_service.rebuild_knowledge_base_from_csv(file_path, source_name)
+            else:
+                chunk_count, message = ai_service.process_csv_for_knowledge_base(file_path, source_name)
+
+            # Clean up the uploaded file
+            try:
+                os.remove(file_path)
+            except:
+                pass
+
+            if chunk_count > 0:
+                return jsonify({
+                    'success': True,
+                    'chunk_count': chunk_count,
+                    'message': message,
+                    'mode': upload_mode,
+                    'filename': file.filename
+                })
+            else:
+                return jsonify({'success': False, 'error': message}), 500
+
+        except Exception as e:
+            # Clean up the uploaded file on error
+            try:
+                os.remove(file_path)
+            except:
+                pass
+            raise e
+
+    except Exception as e:
+        current_app.logger.error(f"Error in CSV knowledge base upload: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @admin_bp.route('/knowledge_base')

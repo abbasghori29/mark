@@ -22,17 +22,17 @@
                 extend: {
                     colors: {
                         primary: {
-                            50: '#f0f7ff',
-                            100: '#e6eef5',
-                            200: '#d1e0ed',
-                            300: '#a9c7d8',
-                            400: '#7aa7c0',
-                            500: '#0F4173',
-                            600: '#0F4173',
-                            700: '#0a3055',
-                            800: '#0c2548',
-                            900: '#091b36',
-                            950: '#060f1d',
+                            50: '#f0f4ff',
+                            100: '#e8eef8',
+                            200: '#d1ddf0',
+                            300: '#a8c1e3',
+                            400: '#7ba0d3',
+                            500: '#4674C6',
+                            600: '#3a5fa8',
+                            700: '#2f4d8a',
+                            800: '#253e6f',
+                            900: '#1d3159',
+                            950: '#141f3a',
                         },
                         secondary: {
                             50: '#f5f8fa',
@@ -238,15 +238,15 @@
     {% endif %}
 
     <!-- Chat Widget Button -->
-    <div id="chat-widget-button" class="fixed bottom-6 right-6 w-16 h-16 bg-primary-600 rounded-full shadow-lg flex items-center justify-center cursor-pointer z-50 hover:bg-primary-700 transition-all">
+    <div id="chat-widget-button" class="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-lg flex items-center justify-center cursor-pointer z-50 transition-all" style="background-color: {{ widget_icon_color or '#4674C6' }};">
         <span class="material-icons text-white">support_agent</span>
     </div>
 
     <!-- Chat Widget Popup -->
     <div id="chat-widget-container" class="fixed bottom-0 right-0 z-50 transition-all duration-300 transform translate-y-full" style="width: min(360px, calc(100% - 20px)); height: min(550px, 85vh); max-height: 85vh; margin-right: 10px;">
         <div class="bg-white rounded-t-lg shadow-lg overflow-hidden flex flex-col h-full">
-            <div class="bot-heading bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex justify-between items-center">
-                <h3 class="text-lg font-semibold truncate max-w-[50%]">Customer Support</h3>
+            <div class="bot-heading bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4 flex justify-between items-center" style="background: linear-gradient(to right, #0F4173, #0a3055) !important;">
+                <h3 class="text-lg font-semibold truncate max-w-[50%]">{{ company_name or 'Customer Support' }}</h3>
                 <div class="flex items-center space-x-2 sm:space-x-4">
                     <div class="chat-mode-selector">
                         <div class="flex items-center">
@@ -282,8 +282,18 @@
 
     <style>
         /* Chat widget control styles */
+        #chat-widget-button:hover {
+            filter: brightness(0.9) !important;
+            transform: scale(1.05) !important;
+        }
+
         #chat-widget-button .material-icons {
             font-size: 32px;
+        }
+
+        /* Ensure header has the specific blue color */
+        .bot-heading {
+            background: linear-gradient(to right, #0F4173, #0a3055) !important;
         }
 
         #chat-widget-minimize {
@@ -404,7 +414,7 @@
         }
 
         .chat-mode-selector input:checked + div {
-            background-color: #0F4173 !important;
+            background-color: #4674C6 !important;
         }
 
         /* Ensure control buttons are visible on small screens */

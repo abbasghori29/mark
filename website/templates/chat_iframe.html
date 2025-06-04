@@ -747,17 +747,23 @@
         var visitorId = "{{ visitor_id }}";
         var currentChatMode = "{{ room.chat_mode }}";
 
+        // Get server URL for cross-origin Socket.IO connections
+        var serverUrl = window.location.origin;
+        console.log('Chat iframe server URL:', serverUrl);
+        console.log('Chat iframe current location:', window.location.href);
+
         // Use the global chat connection manager to create/get connection for this room
         var socketManager = window.chatConnectionManager.createConnection(
             roomId,
             visitorId,
             null, // adminId (null for visitor)
             {
-                debug: false,
+                debug: true,  // Enable debug for troubleshooting
                 autoReconnect: true,
                 maxReconnectAttempts: 10,
                 reconnectInterval: 2000,
-                heartbeatInterval: 20000
+                heartbeatInterval: 20000,
+                serverUrl: serverUrl  // Pass server URL for cross-origin connections
             }
         );
 
@@ -1261,6 +1267,86 @@
             }
         }
 
+        // Function to show AI typing indicator
+        function showAITypingIndicator() {
+            console.log('showAITypingIndicator called');
+
+            // Remove any existing AI typing indicator
+            hideAITypingIndicator();
+
+            var messageContainer = document.getElementById('message-container');
+            var messagesDiv = messageContainer.querySelector('.space-y-4');
+            if (!messagesDiv) {
+                messagesDiv = document.createElement('div');
+                messagesDiv.className = 'space-y-4';
+                messageContainer.appendChild(messagesDiv);
+            }
+
+            // Create AI typing indicator element that matches the static one exactly
+            var typingIndicator = document.createElement('div');
+            typingIndicator.id = 'dynamic-ai-typing-indicator';
+            typingIndicator.className = 'typing-indicator ai-typing';
+            typingIndicator.style.display = 'flex';
+            typingIndicator.style.marginBottom = '10px';
+            typingIndicator.style.alignItems = 'center';
+            typingIndicator.style.marginTop = '16px';
+            typingIndicator.style.justifyContent = 'flex-start';
+
+            // Create AI avatar
+            var avatarElement = document.createElement('div');
+            avatarElement.className = 'avatar-initials ai-avatar';
+            var robotIcon = document.createElement('span');
+            robotIcon.className = 'material-icons';
+            robotIcon.textContent = 'smart_toy';
+            avatarElement.appendChild(robotIcon);
+
+            // Create typing bubble that matches the CSS structure exactly
+            var typingBubble = document.createElement('div');
+            typingBubble.className = 'typing-bubble ai-typing';
+
+            // Add message sender
+            var messageSender = document.createElement('div');
+            messageSender.className = 'message-sender';
+            messageSender.textContent = 'AI Assistant';
+            typingBubble.appendChild(messageSender);
+
+            // Create dots container
+            var dotsContainer = document.createElement('div');
+            dotsContainer.className = 'dots';
+
+            // Create animated dots
+            for (let i = 0; i < 3; i++) {
+                var dot = document.createElement('span');
+                dot.className = 'dot';
+                dotsContainer.appendChild(dot);
+            }
+
+            typingBubble.appendChild(dotsContainer);
+
+            // Assemble the typing indicator
+            typingIndicator.appendChild(avatarElement);
+            typingIndicator.appendChild(typingBubble);
+
+            // Add to messages container
+            messagesDiv.appendChild(typingIndicator);
+
+            console.log('AI typing indicator created and added to DOM');
+            console.log('Typing indicator element:', typingIndicator);
+            console.log('Dots elements:', typingIndicator.querySelectorAll('.dot'));
+
+            // Scroll to bottom to show the typing indicator
+            scrollToBottom();
+        }
+
+        // Function to hide AI typing indicator
+        function hideAITypingIndicator() {
+            var existingIndicator = document.getElementById('dynamic-ai-typing-indicator');
+            if (existingIndicator) {
+                console.log('Hiding AI typing indicator');
+                existingIndicator.remove();
+            }
+        }
+
         // Call scrollToBottom when the page loads
         document.addEventListener('DOMContentLoaded', function() {
             scrollToBottom();
@@ -1640,14 +1726,14 @@
         // Handle AI typing events
         socket.on('ai_typing', function(data) {
             if (data.room_id === roomId) {
-                aiTypingIndicator.style.display = 'flex';
+                showAITypingIndicator();
                 scrollToBottom();
             }
         });
 
         socket.on('ai_stopped_typing', function(data) {
             if (data.room_id === roomId) {
-                aiTypingIndicator.style.display = 'none';
+                hideAITypingIndicator();
             }
         });
 
@@ -1670,12 +1756,20 @@
                 adminTypingIndicator.style.display = 'none';
                 aiTypingIndicator.style.display = 'none';
                 visitorTypingIndicator.style.display = 'none';
+
+                // Also hide our dynamic AI typing indicator
+                hideAITypingIndicator();
             }
         }
 
         // Handle new message event
         socket.on('new_message', function(data) {
             if (data.room_id === roomId) {
+                // Hide AI typing indicator if this is an AI message
+                if (data.is_ai_generated || data.sender_name === 'AI Assistant') {
+                    hideAITypingIndicator();
+                }
+
                 displayMessage(data);
 
                 // Scroll to bottom after new message

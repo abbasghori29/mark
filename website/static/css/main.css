@@ -1,8 +1,8 @@
 /* Main CSS file for the chat application */
 
 :root {
-  --primary-color: #0F4173;
-  --primary-hover: #0a3055;
+  --primary-color: #4674C6;
+  --primary-hover: #3a5fa8;
   --secondary-color: #6c757d;
   --secondary-hover: #5a6268;
   --success-color: #28a745;
@@ -27,8 +27,8 @@
   --ai-color: #8e44ad;
   --ai-light: #9b59b6;
   --ai-dark: #7d3c98;
-  --admin-color: #0F4173;
-  --admin-light: #e6eef5;
+  --admin-color: #4674C6;
+  --admin-light: #e8eef8;
   --visitor-color: #6c757d;
   --visitor-light: #f2f5f7;
 }

@@ -29,8 +29,8 @@
     }
 
     .badge.human {
-        background-color: #e6eef5;
-        color: #0F4173;
+        background-color: #e8eef8;
+        color: #4674C6;
     }
 
     .badge.ai {
@@ -856,6 +856,35 @@
                 if (statusCell) {
                     statusCell.innerHTML = '<span class="status offline"></span> Waiting for Admin';
                 }
+            }
+        });
+
+        // Handle visitor details updated event for real-time dashboard updates
+        socket.on('visitor_details_updated_admin', function(data) {
+            console.log('Visitor details updated for admin dashboard:', data);
+
+            // Update visitor details in dashboard table for all rooms of this visitor
+            if (data.rooms && data.rooms.length > 0) {
+                data.rooms.forEach(function(roomId) {
+                    const roomRow = document.querySelector(`tr[data-room-id="${roomId}"]`);
+                    if (roomRow) {
+                        // Update visitor name in first column
+                        const visitorCell = roomRow.querySelector('td:first-child');
+                        if (visitorCell && data.name) {
+                            // Keep the unread badge if it exists
+                            const unreadBadge = visitorCell.querySelector('.unread-badge');
+                            const unreadBadgeHTML = unreadBadge ? unreadBadge.outerHTML : '';
+
+                            visitorCell.innerHTML = unreadBadgeHTML + data.name;
+                        }
+
+                        // Update email in second column
+                        const emailCell = roomRow.querySelector('td:nth-child(2)');
+                        if (emailCell) {
+                            emailCell.textContent = data.email || '-';
+                        }
+                    }
+                });
             }
         });
 

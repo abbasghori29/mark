@@ -1,10 +1,10 @@
 /* General Styles */
 :root {
-    --primary-color: #2a6fc9;
-    --secondary-color: #4a8ee8;
+    --primary-color: #4674C6;
+    --secondary-color: #5a84d1;
     --background-color: #f5f7fa;
     --text-color: #333;
-    --admin-message-color: #e6f3ff;
+    --admin-message-color: #e8eef8;
     --visitor-message-color: #f0f0f0;
     --border-color: #ddd;
     --success-color: #28a745;

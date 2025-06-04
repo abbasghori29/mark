@@ -16,6 +16,7 @@ class SocketManager {
             heartbeatInterval: 25000,
             connectionTimeout: 10000,
             maxConcurrentConnections: 5,  // Limit concurrent connections per client
+            serverUrl: null,  // Server URL for cross-origin connections
             ...options
         };
 
@@ -109,7 +110,7 @@ class SocketManager {
         this.isReconnecting = false;
 
         // Create new socket connection with optimized settings for multiple connections
-        this.socket = io({
+        const socketOptions = {
             reconnection: false,  // We handle reconnection ourselves
             timeout: this.options.connectionTimeout,
             forceNew: true,
@@ -123,7 +124,21 @@ class SocketManager {
                 visitorId: this.visitorId,
                 adminId: this.adminId
             }
-        });
+        };
+
+        // Use server URL if provided (for cross-origin connections)
+        if (this.options.serverUrl) {
+            this.log(`Connecting to server: ${this.options.serverUrl}`);
+
+            // Add additional options for cross-origin connections
+            socketOptions.withCredentials = false; // Disable credentials for cross-origin
+            socketOptions.extraHeaders = {}; // Clear extra headers that might cause CORS issues
+
+            this.socket = io(this.options.serverUrl, socketOptions);
+        } else {
+            this.log('Connecting to current domain');
+            this.socket = io(socketOptions);
+        }
 
         // Set up core event handlers
         this.socket.on('connect', this.handleConnect);

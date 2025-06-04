@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Remove active state from all items
             chatItems.forEach(i => i.classList.remove('bg-blue-100'));
-            
+
             // Add active state to clicked item
             this.classList.add('bg-blue-100');
             

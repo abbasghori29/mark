@@ -1,4 +1,4 @@
-from flask import Flask, g, send_from_directory, url_for
+from flask import Flask, g, send_from_directory, url_for, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from .extensions import socketio
@@ -103,6 +103,15 @@ def create_app():
     def before_request():
         g.start_time = time.time()
 
+        # Handle CORS preflight requests
+        if request.method == 'OPTIONS':
+            response = Response()
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Browser-UUID'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            return response
+
     @app.after_request
     def after_request(response):
         if hasattr(g, 'start_time'):
@@ -113,6 +122,12 @@ def create_app():
             # Log slow requests (over 1 second)
             if elapsed > 1.0:
                 app.logger.warning(f"Slow request: {request.path} took {elapsed:.4f}s")
+
+        # Add CORS headers for cross-origin requests (needed for embed script)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Browser-UUID'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
 
         # Add cache headers for static files
         if request.path.startswith('/static/'):
@@ -184,11 +199,14 @@ def create_app():
                      ping_timeout=60,
                      ping_interval=25,
                      cors_allowed_origins="*",
+                     cors_credentials=True,
                      max_http_buffer_size=1e6,  # 1MB buffer for large messages
                      transports=['websocket', 'polling'],  # Prefer websockets
                      async_mode='threading',  # Use threading for better concurrency
                      logger=False,  # Disable verbose logging for performance
-                     engineio_logger=False)
+                     engineio_logger=False,  # Disable engine.io logging for performance
+                     allow_upgrades=True,
+                     cookie=None)  # Disable cookies for cross-origin
 
     with app.app_context():
         # First, import models after db is initialized
@@ -230,6 +248,23 @@ def create_app():
                 'time_format': get_time_format(),
                 'format_time': format_time
             }
+
+        # Add context processor for widget settings
+        @app.context_processor
+        def inject_widget_settings():
+            """Inject widget settings into all templates"""
+            try:
+                return {
+                    'widget_icon_color': SiteSettings.get_setting('widget_icon_color', '#4674C6'),
+                    'primary_color': SiteSettings.get_setting('primary_color', '#4674C6'),
+                    'company_name': SiteSettings.get_setting('company_name', 'Customer Support')
+                }
+            except:
+                return {
+                    'widget_icon_color': '#4674C6',
+                    'primary_color': '#4674C6',
+                    'company_name': 'Customer Support'
+                }
 
         # Check if admin table exists before trying to create it
         try:

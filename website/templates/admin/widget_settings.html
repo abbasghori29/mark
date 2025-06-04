@@ -22,11 +22,12 @@
             <div class="col-md-6">
                 <form method="POST" action="{{ url_for('admin.widget_settings') }}" enctype="multipart/form-data">
                     <div class="form-group mb-3">
-                        <label for="primary_color">Primary Color</label>
+                        <label for="widget_icon_color">Chat Widget Icon Color</label>
                         <div class="input-group">
-                            <input type="color" class="form-control form-control-color" id="primary_color" name="primary_color" value="{{ primary_color }}" title="Choose your color">
-                            <input type="text" class="form-control" id="primary_color_text" value="{{ primary_color }}" readonly>
+                            <input type="color" class="form-control form-control-color" id="widget_icon_color" name="widget_icon_color" value="{{ widget_icon_color }}" title="Choose widget icon color">
+                            <input type="text" class="form-control" id="widget_icon_color_text" value="{{ widget_icon_color }}" readonly>
                         </div>
+                        <small class="form-text text-muted">Color of the floating chat button icon</small>
                     </div>
                     
                     <div class="form-group mb-3">
@@ -82,17 +83,6 @@
                             <textarea class="form-control" id="embed_code" rows="3" readonly>{{ embed_code }}</textarea>
                         </div>
                         <button class="btn btn-secondary mt-2" id="copy_embed_code">Copy Code</button>
-                        
-                        <div class="mt-4">
-                            <h5>Widget Preview</h5>
-                            <div class="widget-preview" style="position: relative; height: 300px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                                <div style="position: absolute; bottom: 20px; {{ widget_position }}: 20px; width: 60px; height: 60px; border-radius: 50%; background-color: {{ primary_color }}; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white"/>
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -105,12 +95,11 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Sync color input with text display
-        const colorInput = document.getElementById('primary_color');
-        const colorText = document.getElementById('primary_color_text');
-        
-        colorInput.addEventListener('input', function() {
-            colorText.value = this.value;
-            updatePreview();
+        const iconColorInput = document.getElementById('widget_icon_color');
+        const iconColorText = document.getElementById('widget_icon_color_text');
+
+        iconColorInput.addEventListener('input', function() {
+            iconColorText.value = this.value;
         });
         
         // Copy embed code button
@@ -133,26 +122,7 @@
                 this.classList.remove('btn-success');
             }, 2000);
         });
-        
-        // Update preview when position changes
-        const positionSelect = document.getElementById('widget_position');
-        positionSelect.addEventListener('change', updatePreview);
-        
-        function updatePreview() {
-            const preview = document.querySelector('.widget-preview > div');
-            const position = positionSelect.value;
-            const color = colorInput.value;
-            
-            // Reset positions
-            preview.style.left = 'auto';
-            preview.style.right = 'auto';
-            
-            // Set new position
-            preview.style[position] = '20px';
-            
-            // Update color
-            preview.style.backgroundColor = color;
-        }
+
     });
 </script>
 {% endblock %}

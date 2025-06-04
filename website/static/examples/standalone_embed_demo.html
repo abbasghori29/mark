@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standalone Chat Widget Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature p {
+            opacity: 0.9;
+        }
+
+        .demo-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .demo-section h2 {
+            color: white;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            color: #f8f8f2;
+            overflow-x: auto;
+        }
+
+        .highlight {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            color: white;
+        }
+
+        .highlight strong {
+            color: #ffd700;
+        }
+
+        .cta {
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .cta-text {
+            color: white;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .arrow {
+            color: #ffd700;
+            font-size: 2rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <h1>🚀 Standalone Chat Widget</h1>
+            <p>No more blank.html dependency! This is a completely standalone chat widget that works exactly like the one in base.html</p>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h3>Identical Design</h3>
+                <p>Uses the exact same Material Icons support_agent icon and #4674C6 color scheme as base.html</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Full Functionality</h3>
+                <p>Complete AI/Human toggle, user details, minimize/maximize - everything from base.html</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔧</div>
+                <h3>Zero Dependencies</h3>
+                <p>No blank.html needed! Completely standalone with automatic resource loading</p>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>📋 How to Use</h2>
+            <p style="color: white; text-align: center; margin-bottom: 1rem;">
+                Just add this single line to any website:
+            </p>
+            <div class="code-block">
+&lt;script src="http://YOUR_CHAT_SERVER_URL/embed.js"&gt;&lt;/script&gt;
+            </div>
+            <p style="color: rgba(255,255,255,0.8); text-align: center; margin-top: 0.5rem; font-size: 0.9rem;">
+                Replace YOUR_CHAT_SERVER_URL with your actual server URL (e.g., http://localhost:5000 or https://yourdomain.com)
+            </p>
+            
+            <div class="highlight">
+                <strong>✅ What you get:</strong>
+                <ul style="margin-top: 0.5rem;">
+                    <li>• Floating chat button with Material Icons support_agent icon</li>
+                    <li>• Same blue #4674C6 color scheme as your main site</li>
+                    <li>• AI/Human mode toggle with availability checking</li>
+                    <li>• User details collection and management</li>
+                    <li>• Responsive design that works on all devices</li>
+                    <li>• Automatic Google Fonts and Material Icons loading</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔄 Migration from blank.html</h2>
+            <div class="highlight">
+                <strong>Before (with blank.html dependency):</strong>
+                <div class="code-block" style="margin-top: 0.5rem;">
+&lt;iframe src="http://localhost:5000/blank" width="360" height="550"&gt;&lt;/iframe&gt;
+                </div>
+                
+                <strong>After (standalone):</strong>
+                <div class="code-block" style="margin-top: 0.5rem;">
+&lt;script src="http://localhost:5000/embed.js"&gt;&lt;/script&gt;
+                </div>
+                
+                <p style="margin-top: 1rem;">
+                    <strong>🎉 Result:</strong> Same exact functionality, same design, but no blank page behind the widget!
+                </p>
+            </div>
+        </div>
+
+        <div class="cta">
+            <div class="cta-text">Try the chat widget now!</div>
+            <div class="arrow">👇</div>
+            <p style="color: rgba(255,255,255,0.8); margin-top: 1rem;">
+                Look for the blue floating button in the bottom-right corner
+            </p>
+        </div>
+    </div>
+
+    <!--
+        🚀 STANDALONE CHAT WIDGET
+        This single line replaces the need for blank.html entirely!
+        Replace localhost:5000 with your actual server URL when using on other hosts
+    -->
+    <script src="http://localhost:5000/embed.js"></script>
+</body>
+</html>

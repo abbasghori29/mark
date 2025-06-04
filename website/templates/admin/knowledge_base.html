@@ -237,7 +237,7 @@
     }
     
     .btn-primary {
-        background-color: #0F4173;
+        background-color: #4674C6;
         color: white;
         border: none;
         padding: 0.5rem 1rem;
@@ -245,9 +245,9 @@
         cursor: pointer;
         font-size: 0.875rem;
     }
-    
+
     .btn-upload {
-        background-color: #0F4173;
+        background-color: #4674C6;
         color: white;
         border: none;
         padding: 0.5rem 1rem;
@@ -265,20 +265,32 @@
 <div class="knowledge-base-container">
     <div class="knowledge-base-header">
         <h3>AI Knowledge Base Management</h3>
-        <p>Upload Word documents to expand the AI assistant's knowledge base. This will improve the AI's ability to answer customer questions correctly.</p>
+        <p>Upload CSV files to expand the AI assistant's knowledge base. This will improve the AI's ability to answer customer questions correctly.</p>
     </div>
     
     <div class="file-upload-container" id="drop-area">
-        <div class="file-upload-icon"><i class="las la-file-upload"></i></div>
+        <div class="file-upload-icon"><i class="las la-file-csv"></i></div>
         <div class="file-upload-text">
-            Drag and drop a Word document (.docx) here<br>
+            Drag and drop a CSV file (.csv) here<br>
             or
         </div>
-        <label for="file-input" class="file-upload-btn">Browse Files</label>
-        <input type="file" id="file-input" accept=".docx" />
-        
+        <label for="file-input" class="file-upload-btn">Browse CSV Files</label>
+        <input type="file" id="file-input" accept=".csv" />
+
+        <!-- Upload Mode Selection -->
+        <div class="upload-mode-selection" style="margin: 15px 0; text-align: center;">
+            <label style="margin-right: 20px; font-size: 14px;">
+                <input type="radio" name="upload-mode" value="add" checked style="margin-right: 5px;">
+                Add to existing knowledge base
+            </label>
+            <label style="font-size: 14px;">
+                <input type="radio" name="upload-mode" value="rebuild" style="margin-right: 5px;">
+                Replace entire knowledge base
+            </label>
+        </div>
+
         <div class="selected-file" id="selected-file" style="display: none;">
-            <span class="selected-file-icon"><i class="las la-file-word"></i></span>
+            <span class="selected-file-icon"><i class="las la-file-csv"></i></span>
             <span class="selected-file-name" id="selected-file-name"></span>
             <button class="selected-file-remove" id="remove-file"><i class="las la-times"></i></button>
         </div>
@@ -286,7 +298,7 @@
     
     <div class="file-upload-action">
         <button id="upload-btn" class="upload-btn" disabled>
-            <i class="las la-cloud-upload-alt"></i> Process Document
+            <i class="las la-cloud-upload-alt"></i> Process CSV File
         </button>
     </div>
     
@@ -385,18 +397,18 @@
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 
-                // Check if it's a Word document
-                if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+                // Check if it's a CSV file
+                if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
                     selectedFileName.textContent = file.name;
                     selectedFile.style.display = 'flex';
                     uploadBtn.disabled = false;
-                    
+
                     // Hide any previous results
                     resultContainer.style.display = 'none';
                     resultSuccess.style.display = 'none';
                     resultError.style.display = 'none';
                 } else {
-                    alert('Please select a Word document (.docx file)');
+                    alert('Please select a CSV file (.csv file)');
                     fileInput.value = '';
                 }
             }
@@ -404,134 +416,66 @@
         
         function uploadFile() {
             if (!fileInput.files.length) return;
-            
+
             const file = fileInput.files[0];
-            
+
+            // Get upload mode
+            const uploadMode = document.querySelector('input[name="upload-mode"]:checked').value;
+
             // Show loading state
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="spinner"></span> Processing...';
-            
-            // Read the file content
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const arrayBuffer = e.target.result;
-                
-                // Use mammoth.js to extract text from Word document
-                // First, load mammoth.js dynamically
-                loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.0/mammoth.browser.min.js')
-                    .then(() => {
-                        // Extract text from Word document
-                        window.mammoth.extractRawText({arrayBuffer: arrayBuffer})
-                            .then(result => {
-                                const text = result.value;
-                                
-                                // Send the text to the API
-                                fetch('/admin/api/knowledge_base/upload', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        text: text,
-                                        source: file.name
-                                    }),
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    // Reset upload button
-                                    uploadBtn.disabled = false;
-                                    uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process Document';
-                                    
-                                    // Show result
-                                    resultContainer.style.display = 'block';
-                                    
-                                    if (data.success) {
-                                        resultSuccess.style.display = 'block';
-                                        resultError.style.display = 'none';
-                                        successMessage.textContent = data.message;
-                                        chunkCount.textContent = data.chunk_count;
-                                    } else {
-                                        resultSuccess.style.display = 'none';
-                                        resultError.style.display = 'block';
-                                        errorMessage.textContent = data.error;
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    
-                                    // Reset upload button
-                                    uploadBtn.disabled = false;
-                                    uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process Document';
-                                    
-                                    // Show error
-                                    resultContainer.style.display = 'block';
-                                    resultSuccess.style.display = 'none';
-                                    resultError.style.display = 'block';
-                                    errorMessage.textContent = 'An error occurred while processing the document. Please try again.';
-                                });
-                            })
-                            .catch(error => {
-                                console.error('Mammoth error:', error);
-                                
-                                // Reset upload button
-                                uploadBtn.disabled = false;
-                                uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process Document';
-                                
-                                // Show error
-                                resultContainer.style.display = 'block';
-                                resultSuccess.style.display = 'none';
-                                resultError.style.display = 'block';
-                                errorMessage.textContent = 'Failed to extract text from the document. Please ensure it is a valid Word document.';
-                            });
-                    })
-                    .catch(error => {
-                        console.error('Error loading mammoth.js:', error);
-                        
-                        // Reset upload button
-                        uploadBtn.disabled = false;
-                        uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process Document';
-                        
-                        // Show error
-                        resultContainer.style.display = 'block';
-                        resultSuccess.style.display = 'none';
-                        resultError.style.display = 'block';
-                        errorMessage.textContent = 'Failed to load required libraries. Please try again or contact support.';
-                    });
-            };
-            
-            reader.onerror = function() {
-                console.error('File reading error');
-                
+            uploadBtn.innerHTML = '<span class="spinner"></span> Processing CSV...';
+
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('mode', uploadMode);
+
+            // Send the CSV file to the API
+            fetch('/admin/api/knowledge_base/upload_csv', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
                 // Reset upload button
                 uploadBtn.disabled = false;
-                uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process Document';
-                
+                uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process CSV File';
+
+                // Show result
+                resultContainer.style.display = 'block';
+
+                if (data.success) {
+                    resultSuccess.style.display = 'block';
+                    resultError.style.display = 'none';
+                    successMessage.textContent = data.message + (data.mode === 'rebuild' ? ' (Knowledge base rebuilt)' : ' (Added to existing knowledge base)');
+                    chunkCount.textContent = data.chunk_count;
+
+                    // Clear the file selection
+                    fileInput.value = '';
+                    selectedFile.style.display = 'none';
+                    uploadBtn.disabled = true;
+                } else {
+                    resultSuccess.style.display = 'none';
+                    resultError.style.display = 'block';
+                    errorMessage.textContent = data.error;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+
+                // Reset upload button
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="las la-cloud-upload-alt"></i> Process CSV File';
+
                 // Show error
                 resultContainer.style.display = 'block';
                 resultSuccess.style.display = 'none';
                 resultError.style.display = 'block';
-                errorMessage.textContent = 'Failed to read the file. Please try again.';
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-        
-        // Function to dynamically load a script
-        function loadScript(src) {
-            return new Promise((resolve, reject) => {
-                if (window.mammoth) {
-                    resolve();
-                    return;
-                }
-                
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
+                errorMessage.textContent = 'An error occurred while processing the CSV file. Please try again.';
             });
         }
+
     });
 </script>
 {% endblock %} 

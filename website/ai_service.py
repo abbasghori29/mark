@@ -6,6 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_community.document_loaders import CSVLoader
 from datetime import datetime
 
 load_dotenv()
@@ -174,7 +175,7 @@ class AIService:
             # Split into chunks
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000,
-                chunk_overlap=100
+                chunk_overlap=200
             )
             chunks = splitter.split_documents([document])
 
@@ -186,6 +187,148 @@ class AIService:
 
         except Exception as e:
             print(f"Error adding documents: {e}")
+            return 0, f"Error: {str(e)}"
+
+    def process_text_for_knowledge_base(self, text, source_name="user_upload"):
+        """Process text for knowledge base - wrapper for add_documents for backward compatibility"""
+        return self.add_documents(text, source_name)
+
+    def load_csv_data(self, file_path):
+        """Load CSV file and return documents"""
+        try:
+            loader = CSVLoader(file_path=file_path, encoding='utf-8')
+            documents = loader.load()
+            print(f"Loaded {len(documents)} documents from CSV file")
+            return documents
+        except Exception as e:
+            print(f"Error loading CSV file: {e}")
+            raise e
+
+    def split_documents(self, documents):
+        """Split documents into chunks"""
+        try:
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+            )
+            split_docs = text_splitter.split_documents(documents)
+            print(f"Split into {len(split_docs)} chunks")
+            return split_docs
+        except Exception as e:
+            print(f"Error splitting documents: {e}")
+            raise e
+
+    def create_faiss_db_from_documents(self, split_docs):
+        """Create FAISS database from split documents"""
+        try:
+            if not self.embeddings:
+                raise ValueError("Embeddings not initialized")
+
+            # Create FAISS vector store from documents
+            db = FAISS.from_documents(split_docs, self.embeddings)
+            print(f"Created FAISS database with {len(split_docs)} documents")
+            return db
+        except Exception as e:
+            print(f"Error creating FAISS database: {e}")
+            raise e
+
+    def process_csv_for_knowledge_base(self, csv_file_path, source_name="csv_upload"):
+        """Process CSV file and add to knowledge base"""
+        try:
+            if not os.path.exists(csv_file_path):
+                return 0, f"Error: CSV file {csv_file_path} not found!"
+
+            # Step 1: Load CSV data
+            print("Loading CSV file...")
+            documents = self.load_csv_data(csv_file_path)
+
+            if not documents:
+                return 0, "No documents found in CSV file"
+
+            # Add source metadata to all documents
+            for doc in documents:
+                doc.metadata.update({
+                    "source": source_name,
+                    "date_added": str(datetime.now()),
+                    "file_type": "csv"
+                })
+
+            # Step 2: Split documents
+            print("Splitting documents...")
+            split_docs = self.split_documents(documents)
+
+            # Step 3: Add to existing vector store or create new one
+            if self.vector_store:
+                print("Adding to existing FAISS database...")
+                self.vector_store.add_documents(split_docs)
+            else:
+                print("Creating new FAISS database...")
+                self.vector_store = self.create_faiss_db_from_documents(split_docs)
+
+            # Step 4: Save FAISS index
+            print("Saving FAISS index...")
+            self.vector_store.save_local("faiss_index")
+            print("FAISS database updated and saved successfully!")
+
+            return len(split_docs), f"Successfully processed CSV and added {len(split_docs)} document chunks"
+
+        except Exception as e:
+            print(f"Error processing CSV for knowledge base: {e}")
+            return 0, f"Error: {str(e)}"
+
+    def rebuild_knowledge_base_from_csv(self, csv_file_path, source_name="csv_rebuild"):
+        """Rebuild entire knowledge base from CSV file (replaces existing data)"""
+        try:
+            if not os.path.exists(csv_file_path):
+                return 0, f"Error: CSV file {csv_file_path} not found!"
+
+            # Get OpenAI API key from environment
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not openai_api_key:
+                return 0, "Error: OPENAI_API_KEY not found in environment variables"
+
+            # Step 1: Load CSV data
+            print("Loading CSV file...")
+            documents = self.load_csv_data(csv_file_path)
+
+            if not documents:
+                return 0, "No documents found in CSV file"
+
+            # Add source metadata to all documents
+            for doc in documents:
+                doc.metadata.update({
+                    "source": source_name,
+                    "date_added": str(datetime.now()),
+                    "file_type": "csv"
+                })
+
+            # Step 2: Split documents
+            print("Splitting documents...")
+            split_docs = self.split_documents(documents)
+
+            # Step 3: Create new FAISS database (this replaces the existing one)
+            print("Creating new FAISS database...")
+            embeddings = OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                openai_api_key=openai_api_key
+            )
+
+            db = FAISS.from_documents(split_docs, embeddings)
+
+            # Step 4: Save FAISS index
+            print("Saving FAISS index...")
+            db.save_local("faiss_index")
+
+            # Update our instance
+            self.embeddings = embeddings
+            self.vector_store = db
+
+            print("Knowledge base rebuilt successfully from CSV!")
+            return len(split_docs), f"Successfully rebuilt knowledge base with {len(split_docs)} document chunks from CSV"
+
+        except Exception as e:
+            print(f"Error rebuilding knowledge base from CSV: {e}")
             return 0, f"Error: {str(e)}"
 
     def get_status(self):

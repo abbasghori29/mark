@@ -98,8 +98,8 @@
 }
 
 .sidebar-link.active {
-    background-color: rgba(15, 65, 115, 0.1);
-    color: #0F4173;
+    background-color: rgba(70, 116, 198, 0.1);
+    color: #4674C6;
 }
 
 .sidebar-link i {
@@ -153,5 +153,5 @@
 
 .chat-sidebar .sidebar-link.active {
     font-weight: 600;
-    color: #0F4173;
-} 
+    color: #4674C6;
+}

@@ -1784,6 +1784,14 @@ def handle_visitor_details_update(*args):
             'email': email
         }, room=request.sid)
 
+        # Broadcast visitor details update to all admins for dashboard updates
+        socketio.emit('visitor_details_updated_admin', {
+            'visitor_id': visitor.visitor_id,
+            'name': name,
+            'email': email,
+            'rooms': [room.id for room in rooms]  # Include room IDs for dashboard updates
+        }, namespace='/')
+
         return {'success': True}
     else:
         print(f"Visitor not found: {visitor_id}")
@@ -1816,6 +1824,14 @@ def handle_visitor_details_update(*args):
                 'email': email
             }, room=request.sid)
 
+            # Broadcast visitor details update to all admins for dashboard updates
+            socketio.emit('visitor_details_updated_admin', {
+                'visitor_id': visitor_id,
+                'name': name,
+                'email': email,
+                'rooms': []  # New visitor, no rooms yet
+            }, namespace='/')
+
             return {'success': True}
 
     return {'success': False, 'message': 'Failed to update visitor details'}
@@ -1824,13 +1840,23 @@ def handle_visitor_details_update(*args):
 @login_required
 def get_quick_responses():
     """API endpoint to get all quick responses for the current admin"""
-    # Get all quick responses for the current admin
-    quick_responses = QuickResponse.query.filter_by(admin_id=current_user.id).all()
+    try:
+        print(f"DEBUG: Getting quick responses for admin {current_user.id} ({current_user.name})")
 
-    # Convert to list of dictionaries
-    responses_data = [response.to_dict() for response in quick_responses]
+        # Get all quick responses for the current admin
+        quick_responses = QuickResponse.query.filter_by(admin_id=current_user.id).all()
+        print(f"DEBUG: Found {len(quick_responses)} quick responses")
 
-    return jsonify({'quick_responses': responses_data})
+        # Convert to list of dictionaries
+        responses_data = [response.to_dict() for response in quick_responses]
+        print(f"DEBUG: Converted to dict: {responses_data}")
+
+        return jsonify({'quick_responses': responses_data})
+    except Exception as e:
+        print(f"ERROR in get_quick_responses: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'quick_responses': []}), 500
 
 @views.route('/api/quick_responses', methods=['POST'])
 @login_required
@@ -1940,6 +1966,179 @@ def send_quick_response():
     }, room=room_id)
 
     return jsonify({'success': True})
+
+# NEW QUICK RESPONSES IMPLEMENTATION
+@views.route('/api/v2/quick_responses', methods=['GET'])
+@login_required
+def get_quick_responses_v2():
+    """NEW API endpoint to get all quick responses for the current admin"""
+    try:
+        print(f"[QUICK_RESPONSES_V2] Getting responses for admin {current_user.id} ({current_user.name})")
+
+        # Get all quick responses for the current admin
+        quick_responses = QuickResponse.query.filter_by(admin_id=current_user.id).order_by(QuickResponse.created_at.desc()).all()
+        print(f"[QUICK_RESPONSES_V2] Found {len(quick_responses)} responses")
+
+        # Convert to list of dictionaries
+        responses_data = []
+        for response in quick_responses:
+            response_dict = {
+                'id': response.id,
+                'title': response.title,
+                'content': response.content,
+                'admin_id': response.admin_id,
+                'created_at': response.created_at.isoformat() if response.created_at else None,
+                'updated_at': response.updated_at.isoformat() if response.updated_at else None
+            }
+            responses_data.append(response_dict)
+            print(f"[QUICK_RESPONSES_V2] Response: {response_dict}")
+
+        result = {'success': True, 'quick_responses': responses_data, 'count': len(responses_data)}
+        print(f"[QUICK_RESPONSES_V2] Returning: {result}")
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"[QUICK_RESPONSES_V2] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'quick_responses': []}), 500
+
+@views.route('/api/v2/quick_responses', methods=['POST'])
+@login_required
+def create_quick_response_v2():
+    """NEW API endpoint to create a new quick response"""
+    try:
+        data = request.get_json()
+        print(f"[QUICK_RESPONSES_V2] Creating response with data: {data}")
+
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+
+        if not title or not content:
+            return jsonify({'success': False, 'error': 'Title and content are required'}), 400
+
+        # Create new quick response
+        quick_response = QuickResponse(
+            title=title,
+            content=content,
+            admin_id=current_user.id
+        )
+        db.session.add(quick_response)
+        db.session.commit()
+
+        response_dict = {
+            'id': quick_response.id,
+            'title': quick_response.title,
+            'content': quick_response.content,
+            'admin_id': quick_response.admin_id,
+            'created_at': quick_response.created_at.isoformat() if quick_response.created_at else None,
+            'updated_at': quick_response.updated_at.isoformat() if quick_response.updated_at else None
+        }
+
+        print(f"[QUICK_RESPONSES_V2] Created response: {response_dict}")
+        return jsonify({'success': True, 'quick_response': response_dict})
+
+    except Exception as e:
+        print(f"[QUICK_RESPONSES_V2] CREATE ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@views.route('/api/v2/quick_responses/send', methods=['POST'])
+@login_required
+def send_quick_response_v2():
+    """NEW API endpoint to send a quick response to a chat room"""
+    try:
+        data = request.get_json()
+        print(f"[QUICK_RESPONSES_V2] Sending response with data: {data}")
+
+        room_id = data.get('room_id')
+        response_id = data.get('response_id')
+
+        if not room_id or not response_id:
+            return jsonify({'success': False, 'error': 'Room ID and Response ID are required'}), 400
+
+        # Get the quick response
+        quick_response = QuickResponse.query.get(response_id)
+        if not quick_response:
+            return jsonify({'success': False, 'error': 'Quick response not found'}), 404
+
+        # Check if the quick response belongs to the current admin
+        if quick_response.admin_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+        # Get the room
+        room = Room.query.get(room_id)
+        if not room:
+            return jsonify({'success': False, 'error': 'Room not found'}), 404
+
+        # Create a new message
+        message = Message(
+            content=quick_response.content,
+            room_id=room_id,
+            is_from_visitor=False,
+            sender_id=current_user.id,
+            sender_name=current_user.name,
+            is_read=True
+        )
+        db.session.add(message)
+        db.session.commit()
+
+        # Emit the message to the room using socketio.emit with the room parameter
+        socketio.emit('new_message', {
+            'room_id': room_id,
+            'content': quick_response.content,
+            'sender_name': current_user.name,
+            'sender_id': current_user.id,
+            'time_sent': message.timestamp.strftime('%H:%M'),
+            'is_from_visitor': False,
+            'admin_profile_image': current_user.profile_image if hasattr(current_user, 'profile_image') else None
+        }, room=room_id)
+
+        print(f"[QUICK_RESPONSES_V2] Sent response: {quick_response.title}")
+        return jsonify({'success': True})
+
+    except Exception as e:
+        print(f"[QUICK_RESPONSES_V2] SEND ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@views.route('/api/v2/quick_responses/create_test', methods=['POST'])
+@login_required
+def create_test_quick_response():
+    """Create a test quick response for the current admin"""
+    try:
+        print(f"[QUICK_RESPONSES_V2] Creating test response for admin {current_user.id}")
+
+        # Check if test response already exists
+        existing = QuickResponse.query.filter_by(
+            admin_id=current_user.id,
+            title="Test Response"
+        ).first()
+
+        if existing:
+            print(f"[QUICK_RESPONSES_V2] Test response already exists")
+            return jsonify({'success': True, 'message': 'Test response already exists'})
+
+        # Create test quick response
+        test_response = QuickResponse(
+            title="Test Response",
+            content="Hello! This is a test quick response. How can I help you today?",
+            admin_id=current_user.id
+        )
+        db.session.add(test_response)
+        db.session.commit()
+
+        print(f"[QUICK_RESPONSES_V2] Created test response with ID: {test_response.id}")
+        return jsonify({'success': True, 'message': 'Test response created successfully'})
+
+    except Exception as e:
+        print(f"[QUICK_RESPONSES_V2] ERROR creating test response: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @views.route('/quick_responses')
 @login_required
@@ -2730,8 +2929,9 @@ def embed_script():
     server_url = request.url_root.rstrip('/')
 
     # Get settings from database
-    primary_color = SiteSettings.get_setting('primary_color', '#4a6cf7')
-    company_name = SiteSettings.get_setting('company_name', 'Your Company Name')
+    primary_color = SiteSettings.get_setting('primary_color', '#4674C6')
+    widget_icon_color = SiteSettings.get_setting('widget_icon_color', '#4674C6')
+    company_name = SiteSettings.get_setting('company_name', 'Customer Support')
     welcome_message = SiteSettings.get_setting('welcome_message', 'Welcome to our customer support chat. How can we help you today?')
 
     # Get logo URL if available
@@ -2747,6 +2947,7 @@ def embed_script():
     # Replace placeholders with actual values
     js_content = js_content.replace('{{server_url}}', server_url)
     js_content = js_content.replace('{{primary_color}}', primary_color)
+    js_content = js_content.replace('{{widget_icon_color}}', widget_icon_color)
     js_content = js_content.replace('{{position}}', position)
     js_content = js_content.replace('{{welcome_message}}', welcome_message)
     js_content = js_content.replace('{{company_name}}', company_name)
@@ -2761,6 +2962,30 @@ def embed_script():
     response.headers['Expires'] = '0'
 
     return response
+
+@views.route('/standalone-demo')
+def standalone_demo():
+    """Serve the standalone embed demo page"""
+    return send_from_directory(
+        os.path.join(current_app.static_folder, 'examples'),
+        'standalone_embed_demo.html'
+    )
+
+@views.route('/external-host-example')
+def external_host_example():
+    """Serve the external host integration example"""
+    return send_from_directory(
+        os.path.join(current_app.static_folder, 'examples'),
+        'external_host_example.html'
+    )
+
+@views.route('/simple-test')
+def simple_test():
+    """Serve the simple test file (works without live server)"""
+    return send_from_directory(
+        os.path.join(current_app.static_folder, 'examples'),
+        'simple_test.html'
+    )
 
 def get_business_hours_data():
     """Get business hours data for templates"""

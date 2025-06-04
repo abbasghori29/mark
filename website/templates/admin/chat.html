@@ -8,14 +8,14 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/chat.css') }}">
 <style>
     :root {
-        --admin-color: #0F4173;
-        --admin-light: #e6eef5;
+        --admin-color: #4674C6;
+        --admin-light: #e8eef8;
         --visitor-color: #6c757d;
         --visitor-light: #f2f5f7;
         --ai-color: #00bcd4;
         --ai-light: #e1f5fe;
         --border-radius: 16px;
-        --navy-color: #0F4173;
+        --navy-color: #4674C6;
     }
 
     /* Custom styles for Google Meet link */
@@ -427,7 +427,14 @@
         justify-content: flex-end;
         font-size: 11px;
         margin-top: 5px;
-        opacity: 0.7;
+        opacity: 0.9;
+        color: #555;
+    }
+
+    /* Admin message time should be white */
+    .message-admin .message-meta {
+        color: white;
+        opacity: 0.9;
     }
 
     /* System message styles - UPDATED */
@@ -455,7 +462,8 @@
 
     .system-message-time {
         margin-left: 8px;
-        opacity: 0.6;
+        opacity: 0.8;
+        color: #666;
         font-size: 11px;
         display: inline-block;
     }
@@ -783,7 +791,8 @@
         justify-content: space-between;
         font-size: 11px;
         margin-top: 5px;
-        opacity: 0.7;
+        opacity: 0.9;
+        color: #555;
     }
 
     /* Save Tag Button */
@@ -1497,11 +1506,11 @@
                 <h4>Quick Responses</h4>
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span>Select a response to send</span>
-                    <a href="/quick_responses" class="btn btn-sm btn-outline-primary" target="_blank">
+                    <a href="/quick_responses" class="btn btn-sm btn-outline-primary" id="manage-responses-btn">
                         <i class="fas fa-cog"></i> Manage
                     </a>
                 </div>
-                <div class="quick-response-list" id="quick-response-list">
+                <div class="quick-response-list" id="quick-response-list-v2">
                     <!-- Quick responses will be loaded here -->
                     <div class="spinner-border spinner-border-sm text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
@@ -1574,11 +1583,11 @@
                     <h4>Quick Responses</h4>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span>Select a response</span>
-                        <a href="/quick_responses" class="btn btn-sm btn-outline-primary" target="_blank">
+                        <a href="/quick_responses" class="btn btn-sm btn-outline-primary" id="mobile-manage-responses-btn">
                             <i class="fas fa-cog"></i> Manage
                         </a>
                     </div>
-                    <div class="quick-response-list" id="mobile-quick-response-list">
+                    <div class="quick-response-list" id="mobile-quick-response-list-v2">
                         <!-- Quick responses will be loaded here -->
                         <div class="spinner-border spinner-border-sm text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
@@ -2441,6 +2450,58 @@
             }
         });
 
+        // Handle visitor details updated event for admin dashboard updates
+        socket.on('visitor_details_updated_admin', function(data) {
+            console.log('Visitor details updated for admin (from dashboard):', data);
+
+            // Check if this update is for the current visitor
+            if (data.visitor_id === '{{ visitor.visitor_id if visitor else "" }}') {
+                // Update visitor name in the header
+                const visitorNameHeader = document.querySelector('.chat-header-info h3');
+                if (visitorNameHeader && data.name) {
+                    visitorNameHeader.textContent = `Chat with ${data.name}`;
+                }
+
+                // Update visitor info in all tables (main sidebar and mobile sidebar)
+                const visitorTables = document.querySelectorAll('.visitor-info-table');
+                visitorTables.forEach(table => {
+                    // Update name row if exists or create it
+                    if (data.name) {
+                        let nameRow = Array.from(table.querySelectorAll('th')).find(th => th.textContent === 'Name');
+                        if (!nameRow) {
+                            // Create name row if it doesn't exist
+                            const newRow = document.createElement('tr');
+                            newRow.innerHTML = `<th>Name</th><td>${data.name}</td>`;
+                            table.insertBefore(newRow, table.firstChild);
+                        } else {
+                            // Update existing row
+                            nameRow.closest('tr').querySelector('td').textContent = data.name;
+                        }
+                    }
+
+                    // Update email row if exists or create it
+                    if (data.email) {
+                        let emailRow = Array.from(table.querySelectorAll('th')).find(th => th.textContent === 'Email');
+                        if (!emailRow) {
+                            // Create email row if it doesn't exist
+                            const newRow = document.createElement('tr');
+                            newRow.innerHTML = `<th>Email</th><td>${data.email}</td>`;
+                            // Insert after name row if it exists, otherwise at the beginning
+                            const nameRow = Array.from(table.querySelectorAll('th')).find(th => th.textContent === 'Name');
+                            if (nameRow) {
+                                nameRow.closest('tr').insertAdjacentElement('afterend', newRow);
+                            } else {
+                                table.insertBefore(newRow, table.firstChild);
+                            }
+                        } else {
+                            // Update existing row
+                            emailRow.closest('tr').querySelector('td').textContent = data.email;
+                        }
+                    }
+                });
+            }
+        });
+
         // Handle visitor typing events
         socket.on('visitor_typing', function(data) {
             if (data.room_id === roomId) {
@@ -2484,13 +2545,23 @@
             }
         });
 
-        // Function to scroll to the bottom of the chat
-        function scrollToBottom() {
-            const chatMessages = document.getElementById('chat-messages');
-            if (chatMessages) {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+        // Handle AI typing events
+        socket.on('ai_typing', function(data) {
+            if (data.room_id === roomId) {
+                console.log('Received AI typing event:', data);
+                aiTypingIndicator.style.display = 'flex';
+                scrollToBottom();
             }
-        }
+        });
+
+        socket.on('ai_stopped_typing', function(data) {
+            if (data.room_id === roomId) {
+                console.log('Received AI stopped typing event:', data);
+                aiTypingIndicator.style.display = 'none';
+            }
+        });
+
+
 
         // Function to display system messages
         function displaySystemMessage(content, timestamp) {
@@ -2510,70 +2581,11 @@
             scrollToBottom();
         }
 
-        // Scroll to bottom when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            scrollToBottom();
-        });
 
-        // Handle page unload/navigation to ensure admin_leave_room is sent
-        window.addEventListener('beforeunload', function() {
-            // Send admin_leave_room event when admin navigates away
-            socket.emit('admin_leave_room', {
-                room_id: roomId,
-                admin_id: adminId,
-                admin_name: adminName
-            });
-        });
-    });
 
-    // Function to load quick responses from API
-    function loadQuickResponses() {
-        fetch('/api/quick_responses')
-            .then(response => response.json())
-            .then(data => {
-                const quickResponseList = document.getElementById('quick-response-list');
-                const mobileQuickResponseList = document.getElementById('mobile-quick-response-list');
 
-                // Clear loading spinners
-                quickResponseList.innerHTML = '';
-                mobileQuickResponseList.innerHTML = '';
 
-                if (data.quick_responses && data.quick_responses.length > 0) {
-                    // Add responses to desktop sidebar
-                    data.quick_responses.forEach(response => {
-                        const button = document.createElement('button');
-                        button.className = 'quick-response-btn';
-                        button.setAttribute('data-id', response.id);
-                        button.setAttribute('data-message', response.content);
-                        button.textContent = response.title;
-                        button.addEventListener('click', function() {
-                            sendQuickResponse(response.id);
-                        });
-                        quickResponseList.appendChild(button);
-
-                        // Clone for mobile sidebar
-                        const mobileButton = button.cloneNode(true);
-                        mobileButton.className = 'quick-response-btn mobile-quick-response';
-                        mobileButton.setAttribute('data-message', response.content);
-                        mobileButton.addEventListener('click', function() {
-                            sendQuickResponse(response.id);
-                        });
-                        mobileQuickResponseList.appendChild(mobileButton);
-                    });
-                } else {
-                    // No responses found
-                    quickResponseList.innerHTML = '<p class="text-muted small">No quick responses found. <a href="/quick_responses" target="_blank">Create some</a>.</p>';
-                    mobileQuickResponseList.innerHTML = '<p class="text-muted small">No quick responses found.</p>';
-                }
-            })
-            .catch(error => {
-                console.error('Error loading quick responses:', error);
-                document.getElementById('quick-response-list').innerHTML = '<p class="text-danger small">Error loading responses</p>';
-                document.getElementById('mobile-quick-response-list').innerHTML = '<p class="text-danger small">Error loading responses</p>';
-            });
-    }
-
-    // Function to send a quick response
+    // OLD Function to send a quick response (keeping for compatibility)
     function sendQuickResponse(responseId) {
         const roomId = '{{ room.id }}';
 
@@ -2603,25 +2615,284 @@
         });
     }
 
-    // Add this to your existing JavaScript
-    document.addEventListener('DOMContentLoaded', function() {
-        // Handle close button in chat history modal
-        document.getElementById('close-history-modal').addEventListener('click', function() {
-            document.getElementById('chat-history-modal').style.display = 'none';
+        // Handle manage responses button clicks
+        const manageResponsesBtn = document.getElementById('manage-responses-btn');
+        const mobileManageResponsesBtn = document.getElementById('mobile-manage-responses-btn');
+
+        function handleManageResponsesClick(e) {
+            e.preventDefault(); // Prevent immediate navigation
+
+            // Send admin_leave_room event before navigating
+            socket.emit('admin_leave_room', {
+                room_id: roomId,
+                admin_id: adminId,
+                admin_name: adminName
+            });
+
+            // Small delay to ensure the event is sent, then navigate
+            setTimeout(() => {
+                window.location.href = '/quick_responses';
+            }, 100);
+        }
+
+        if (manageResponsesBtn) {
+            manageResponsesBtn.addEventListener('click', handleManageResponsesClick);
+        }
+
+        if (mobileManageResponsesBtn) {
+            mobileManageResponsesBtn.addEventListener('click', handleManageResponsesClick);
+        }
+
+        // Handle page unload/navigation to ensure admin_leave_room is sent
+        window.addEventListener('beforeunload', function() {
+            // Send admin_leave_room event when admin navigates away
+            socket.emit('admin_leave_room', {
+                room_id: roomId,
+                admin_id: adminId,
+                admin_name: adminName
+            });
         });
+    });
+
+// GLOBAL FUNCTIONS FOR QUICK RESPONSES V2 (moved outside of any closure)
+
+// Global scrollToBottom function
+function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+}
+
+function loadQuickResponsesV2() {
+    console.log('[QUICK_RESPONSES_V2] Loading quick responses...');
+
+    // Get the containers
+    const quickResponseList = document.getElementById('quick-response-list-v2');
+    const mobileQuickResponseList = document.getElementById('mobile-quick-response-list-v2');
+
+    console.log('[QUICK_RESPONSES_V2] Container elements found:', {
+        desktop: !!quickResponseList,
+        mobile: !!mobileQuickResponseList
+    });
+
+    if (!quickResponseList || !mobileQuickResponseList) {
+        console.error('[QUICK_RESPONSES_V2] Could not find response containers');
+        console.error('[QUICK_RESPONSES_V2] Desktop container:', quickResponseList);
+        console.error('[QUICK_RESPONSES_V2] Mobile container:', mobileQuickResponseList);
+        return;
+    }
+
+    // Show loading state
+    console.log('[QUICK_RESPONSES_V2] Setting loading state...');
+    quickResponseList.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    mobileQuickResponseList.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+
+    // Fetch from new API endpoint
+    console.log('[QUICK_RESPONSES_V2] Making API call to /api/v2/quick_responses...');
+    fetch('/api/v2/quick_responses', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            console.log('[QUICK_RESPONSES_V2] API response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                headers: response.headers
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('[QUICK_RESPONSES_V2] Data received:', data);
+            console.log('[QUICK_RESPONSES_V2] Data type:', typeof data);
+            console.log('[QUICK_RESPONSES_V2] Data success:', data.success);
+            console.log('[QUICK_RESPONSES_V2] Quick responses array:', data.quick_responses);
+            console.log('[QUICK_RESPONSES_V2] Quick responses length:', data.quick_responses ? data.quick_responses.length : 'undefined');
+
+            // Clear loading spinners
+            quickResponseList.innerHTML = '';
+            mobileQuickResponseList.innerHTML = '';
+
+            if (data.success && data.quick_responses && data.quick_responses.length > 0) {
+                console.log('[QUICK_RESPONSES_V2] Found', data.quick_responses.length, 'quick responses');
+
+                // Add responses to desktop sidebar
+                data.quick_responses.forEach((response, index) => {
+                    console.log(`[QUICK_RESPONSES_V2] Processing response ${index + 1}:`, response);
+
+                    const button = document.createElement('button');
+                    button.className = 'quick-response-btn btn btn-sm btn-outline-primary mb-2 w-100 text-start';
+                    button.setAttribute('data-id', response.id);
+                    button.setAttribute('data-message', response.content);
+                    button.textContent = response.title;
+                    button.title = response.content; // Show content on hover
+                    button.addEventListener('click', function() {
+                        sendQuickResponseV2(response.id);
+                    });
+                    quickResponseList.appendChild(button);
+
+                    // Clone for mobile sidebar
+                    const mobileButton = button.cloneNode(true);
+                    mobileButton.className = 'quick-response-btn btn btn-sm btn-outline-primary mb-2 w-100 text-start';
+                    mobileButton.addEventListener('click', function() {
+                        sendQuickResponseV2(response.id);
+                    });
+                    mobileQuickResponseList.appendChild(mobileButton);
+                });
+
+                console.log('[QUICK_RESPONSES_V2] Successfully added all quick response buttons');
+            } else {
+                // No responses found
+                console.log('[QUICK_RESPONSES_V2] No quick responses found or data.success is false');
+                console.log('[QUICK_RESPONSES_V2] Showing "no responses" message');
+                quickResponseList.innerHTML = '<p class="text-muted small">No quick responses found. <a href="/quick_responses" id="create-responses-link">Create some</a>.</p>';
+
+                // Add event handler for the create responses link
+                const createResponsesLink = document.getElementById('create-responses-link');
+                if (createResponsesLink) {
+                    createResponsesLink.addEventListener('click', function(e) {
+                        e.preventDefault();
+
+                        // Send admin_leave_room event before navigating
+                        socket.emit('admin_leave_room', {
+                            room_id: roomId,
+                            admin_id: adminId,
+                            admin_name: adminName
+                        });
+
+                        // Small delay to ensure the event is sent, then navigate
+                        setTimeout(() => {
+                            window.location.href = '/quick_responses';
+                        }, 100);
+                    });
+                }
+                mobileQuickResponseList.innerHTML = '<p class="text-muted small">No quick responses found.</p>';
+            }
+        })
+        .catch(error => {
+            console.error('[QUICK_RESPONSES_V2] Error loading responses:', error);
+            console.error('[QUICK_RESPONSES_V2] Error details:', {
+                message: error.message,
+                stack: error.stack
+            });
+            quickResponseList.innerHTML = '<p class="text-danger small">Error loading responses: ' + error.message + '</p>';
+            mobileQuickResponseList.innerHTML = '<p class="text-danger small">Error loading responses</p>';
+        });
+}
+
+function sendQuickResponseV2(responseId) {
+    console.log('[QUICK_RESPONSES_V2] Sending response ID:', responseId);
+    const roomId = '{{ room.id }}';
+
+    fetch('/api/v2/quick_responses/send', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+            room_id: roomId,
+            response_id: responseId
+        }),
+    })
+    .then(response => {
+        console.log('[QUICK_RESPONSES_V2] Send response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('[QUICK_RESPONSES_V2] Send response data:', data);
+        if (data.success) {
+            console.log('[QUICK_RESPONSES_V2] Quick response sent successfully');
+        } else {
+            console.error('[QUICK_RESPONSES_V2] Failed to send quick response:', data.error);
+            alert('Failed to send quick response: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('[QUICK_RESPONSES_V2] Error sending quick response:', error);
+        alert('Error sending quick response. Please try again.');
+    });
+}
+
+function createTestQuickResponse() {
+    console.log('[QUICK_RESPONSES_V2] Creating test quick response...');
+
+    fetch('/api/v2/quick_responses/create_test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('[QUICK_RESPONSES_V2] Create test response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('[QUICK_RESPONSES_V2] Create test response data:', data);
+        if (data.success) {
+            alert('Test response created successfully!');
+            // Reload quick responses to show the new one
+            loadQuickResponsesV2();
+        } else {
+            alert('Failed to create test response: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('[QUICK_RESPONSES_V2] Error creating test response:', error);
+        alert('Error creating test response. Please try again.');
+    });
+}
+
+
+
+
+
+    // Consolidated DOMContentLoaded event listener
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('[QUICK_RESPONSES_V2] DOMContentLoaded event fired - initializing chat page');
+
+        // Scroll to bottom when page loads
+        scrollToBottom();
+
+        // Load quick responses when page loads (with small delay to ensure DOM is ready)
+        console.log('[QUICK_RESPONSES_V2] About to call loadQuickResponsesV2()');
+        setTimeout(function() {
+            if (typeof loadQuickResponsesV2 === 'function') {
+                loadQuickResponsesV2();
+            } else {
+                console.error('[QUICK_RESPONSES_V2] loadQuickResponsesV2 function not found');
+            }
+        }, 100); // Small delay to ensure everything is ready
+
+        // Handle close button in chat history modal
+        const closeHistoryModal = document.getElementById('close-history-modal');
+        if (closeHistoryModal) {
+            closeHistoryModal.addEventListener('click', function() {
+                document.getElementById('chat-history-modal').style.display = 'none';
+            });
+        }
 
         // Close modal when clicking outside of it
         window.addEventListener('click', function(event) {
             const modal = document.getElementById('chat-history-modal');
-            if (event.target === modal) {
+            if (modal && event.target === modal) {
                 modal.style.display = 'none';
             }
         });
 
         // Close modal with escape key
         document.addEventListener('keydown', function(event) {
-            if (event.key === "Escape" && document.getElementById('chat-history-modal').style.display === 'block') {
-                document.getElementById('chat-history-modal').style.display = 'none';
+            const modal = document.getElementById('chat-history-modal');
+            if (modal && event.key === "Escape" && modal.style.display === 'block') {
+                modal.style.display = 'none';
             }
         });
     });

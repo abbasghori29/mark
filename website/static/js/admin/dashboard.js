@@ -66,6 +66,63 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Handle visitor details updated event for real-time dashboard updates
+    socket.on('visitor_details_updated_admin', function(data) {
+        console.log('Visitor details updated for admin dashboard:', data);
+
+        // Update visitor details in dashboard table for all rooms of this visitor
+        if (data.rooms && data.rooms.length > 0) {
+            data.rooms.forEach(function(roomId) {
+                const roomRow = document.querySelector(`tr[data-room-id="${roomId}"]`);
+                if (roomRow) {
+                    // Update visitor name in first column
+                    const visitorCell = roomRow.querySelector('td:first-child');
+                    if (visitorCell && data.name) {
+                        // Keep the unread badge if it exists
+                        const unreadBadge = visitorCell.querySelector('.unread-badge');
+                        const unreadBadgeHTML = unreadBadge ? unreadBadge.outerHTML : '';
+
+                        visitorCell.innerHTML = unreadBadgeHTML + data.name;
+                    }
+
+                    // Update email in second column
+                    const emailCell = roomRow.querySelector('td:nth-child(2)');
+                    if (emailCell) {
+                        emailCell.textContent = data.email || '-';
+                    }
+                }
+            });
+        }
+
+        // If on visitor tracking page, also update visitor list
+        if (window.location.pathname.endsWith('/visitors')) {
+            // Find visitor rows by visitor ID and update them
+            const visitorRows = document.querySelectorAll(`[data-visitor-id="${data.visitor_id}"]`);
+            visitorRows.forEach(function(row) {
+                // Update name display
+                if (data.name) {
+                    const nameElements = row.querySelectorAll('.visitor-id, .visitor-detail');
+                    nameElements.forEach(function(element) {
+                        if (element.textContent.includes('Visitor (') && element.textContent.includes(')')) {
+                            // Replace "Visitor (IP)" with actual name
+                            element.textContent = data.name;
+                        }
+                    });
+                }
+
+                // Update email display
+                if (data.email) {
+                    const emailElements = row.querySelectorAll('.visitor-detail');
+                    emailElements.forEach(function(element) {
+                        if (element.querySelector('.la-envelope')) {
+                            element.innerHTML = '<span class="las la-envelope"></span>' + data.email;
+                        }
+                    });
+                }
+            });
+        }
+    });
+
     // Close chat functionality
     const closeButtons = document.querySelectorAll('.close-chat');
     closeButtons.forEach(function(button) {

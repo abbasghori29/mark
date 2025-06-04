@@ -501,6 +501,51 @@
             // Just refresh the page for simplicity
             location.reload();
         });
+
+        // Handle visitor details updated event for real-time visitor list updates
+        socket.on('visitor_details_updated_admin', function(data) {
+            console.log('Visitor details updated for visitor list:', data);
+
+            // Find visitor rows by visitor ID and update them
+            const visitorRows = document.querySelectorAll(`[data-visitor-id="${data.visitor_id}"]`);
+            visitorRows.forEach(function(row) {
+                // Update name display in visitor-id element
+                if (data.name) {
+                    const visitorIdElement = row.querySelector('.visitor-id');
+                    if (visitorIdElement) {
+                        // Update the main visitor identifier
+                        visitorIdElement.innerHTML = `${data.name} <span class="live-indicator">In Chat</span>`;
+                    }
+
+                    // Update name in visitor details section
+                    const nameDetailElements = row.querySelectorAll('.visitor-detail');
+                    nameDetailElements.forEach(function(element) {
+                        if (element.querySelector('.la-user')) {
+                            element.innerHTML = `<span class="las la-user"></span>${data.name}`;
+                        }
+                    });
+                }
+
+                // Update email display
+                if (data.email) {
+                    const emailDetailElements = row.querySelectorAll('.visitor-detail');
+                    emailDetailElements.forEach(function(element) {
+                        if (element.querySelector('.la-envelope')) {
+                            element.innerHTML = `<span class="las la-envelope"></span>${data.email}`;
+                        }
+                    });
+
+                    // If no email detail exists, create one
+                    const visitorDetailsContainer = row.querySelector('.visitor-details');
+                    if (visitorDetailsContainer && !row.querySelector('.visitor-detail .la-envelope')) {
+                        const emailDetail = document.createElement('div');
+                        emailDetail.className = 'visitor-detail';
+                        emailDetail.innerHTML = `<span class="las la-envelope"></span>${data.email}`;
+                        visitorDetailsContainer.appendChild(emailDetail);
+                    }
+                }
+            });
+        });
     });
 </script>
 {% endblock %} 
